@@ -6,9 +6,10 @@ import io
 
 app = Flask(__name__)
 
-# Global memory state
+# --- TRUE MEMORY STATE ---
 global_inventory = {}
-global_memory_offset = 0  
+global_level_offsets = {0: 0}  
+global_current_level = 0       
 
 TYPE_SIZES = {
     'hp': 4,
@@ -21,7 +22,8 @@ def format_web_voice(raw_text):
     raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ')
     words = raw_text.lower().split()
     
-    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'end']
+    # <--- UPDATED KEYWORD LIST
+    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'close']
     
     processed_words = []
     i = 0
@@ -42,28 +44,30 @@ def format_web_voice(raw_text):
             
     final_string = " ".join(processed_words)
     
-    if not final_string.endswith("done") and not final_string.endswith("end"):
+    # <--- UPDATED ENDSWITH CHECK
+    if not final_string.endswith("done") and not final_string.endswith("close"):
         final_string += " done"
     return final_string
 
 def run_web_semantics(tokens):
-    global global_memory_offset
-    print("\n--- STARTING SEMANTIC ANALYSIS ---")
+    global global_inventory, global_level_offsets, global_current_level
+    print(f"\n--- STARTING SEMANTIC ANALYSIS (State: Level {global_current_level}) ---")
     i = 0
-    current_level = 0
     
     while i < len(tokens):
         token_type = tokens[i][0]
         token_val = tokens[i][1]
         
         if token_type == 'SCOPE_IN':
-            current_level += 1
-            print(f"[SEMANTICS] Scope opened. Dropping to Level {current_level}.")
+            global_current_level += 1
+            global_level_offsets[global_current_level] = 0 
+            print(f"[SEMANTICS] Scope opened. Dropped to Level {global_current_level}. Offset reset to 0.")
             i += 1
             continue
         elif token_type == 'SCOPE_OUT':
-            print(f"[SEMANTICS] Scope closed. Returning to Level {current_level - 1}.")
-            current_level = max(0, current_level - 1)
+            global_current_level = max(0, global_current_level - 1)
+            current_offset = global_level_offsets[global_current_level]
+            print(f"[SEMANTICS] Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
             i += 1
             continue
             
@@ -71,6 +75,7 @@ def run_web_semantics(tokens):
             dtype = token_val
             var_name = tokens[i+1][1]
             space_required = TYPE_SIZES.get(dtype, 4)
+            current_offset = global_level_offsets[global_current_level]
             
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 if dtype not in ['hp', 'xp']: 
@@ -81,14 +86,14 @@ def run_web_semantics(tokens):
                 elif op == 'minus': final_val = val1 - val2
                 elif op == 'times': final_val = val1 * val2
                 
-                print(f"[SEMANTICS] Allocating {space_required} bytes at Offset {global_memory_offset}.")
+                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {
                     'type': dtype, 'value': final_val, 
-                    'level': f"Level {current_level}", 
-                    'offset': global_memory_offset, 
+                    'level': f"Level {global_current_level}", 
+                    'offset': current_offset, 
                     'space': f"{space_required} bytes"
                 }
-                global_memory_offset += space_required
+                global_level_offsets[global_current_level] += space_required
                 return True, f"Math calculated. {var_name} is now {final_val}."
                 
             else:
@@ -98,14 +103,14 @@ def run_web_semantics(tokens):
                 if dtype == 'lore' and lit_type != 'LITERAL_STR': 
                     return False, "Fatal Error: Cannot equip number to Lore."
                 
-                print(f"[SEMANTICS] Allocating {space_required} bytes at Offset {global_memory_offset}.")
+                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {
                     'type': dtype, 'value': raw_val, 
-                    'level': f"Level {current_level}", 
-                    'offset': global_memory_offset, 
+                    'level': f"Level {global_current_level}", 
+                    'offset': current_offset, 
                     'space': f"{space_required} bytes"
                 }
-                global_memory_offset += space_required
+                global_level_offsets[global_current_level] += space_required
                 return True, f"Successfully equipped {var_name}."
         i += 1
     return False, "Unknown semantic error."
@@ -171,14 +176,13 @@ def compile_code():
         "terminal_logs": terminal_logs
     })
 
-# --- NEW ROUTE: PURGE MEMORY ---
 @app.route('/reset', methods=['POST'])
 def reset_memory():
-    global global_inventory
-    global global_memory_offset
+    global global_inventory, global_level_offsets, global_current_level
     
     global_inventory.clear()
-    global_memory_offset = 0
+    global_level_offsets = {0: 0}
+    global_current_level = 0
     
     return jsonify({"status": "success", "message": "Memory purged successfully."})
 
