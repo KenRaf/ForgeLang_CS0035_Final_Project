@@ -52,6 +52,7 @@ def run_web_semantics(tokens):
     global global_inventory, global_level_offsets, global_current_level, global_order_counter
     print(f"\n--- STARTING SEMANTIC ANALYSIS (State: Level {global_current_level}) ---")
     i = 0
+    success_msg = ""
     
     while i < len(tokens):
         token_type = tokens[i][0]
@@ -60,23 +61,26 @@ def run_web_semantics(tokens):
         if token_type == 'SCOPE_IN':
             global_current_level += 1
             global_level_offsets[global_current_level] = 0 
-            print(f"[SEMANTICS] Scope opened. Dropped to Level {global_current_level}. Offset reset to 0.")
-            i += 1
-            continue
-        elif token_type == 'SCOPE_OUT':
-            global_current_level = max(0, global_current_level - 1)
-            current_offset = global_level_offsets[global_current_level]
-            print(f"[SEMANTICS] Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
+            print(f"[SEMANTICS] Scope opened. Dropped to Level {global_current_level}.")
+            success_msg = f"Scope opened at Level {global_current_level}."
             i += 1
             continue
             
-        if token_type == 'DATATYPE':
+        elif token_type == 'SCOPE_OUT':
+            global_current_level = max(0, global_current_level - 1)
+            current_offset = global_level_offsets.get(global_current_level, 0)
+            print(f"[SEMANTICS] Scope closed. Returned to Level {global_current_level}.")
+            if not success_msg: 
+                success_msg = f"Scope closed. Returned to Level {global_current_level}."
+            i += 1
+            continue
+            
+        elif token_type == 'DATATYPE':
             dtype = token_val
             var_name = tokens[i+1][1]
             space_required = TYPE_SIZES.get(dtype, 4)
-            current_offset = global_level_offsets[global_current_level]
+            current_offset = global_level_offsets.get(global_current_level, 0)
             
-            # --- NEW: Assign chronological ID ---
             if var_name not in global_inventory:
                 global_order_counter += 1
                 order_id = global_order_counter
@@ -92,17 +96,22 @@ def run_web_semantics(tokens):
                 elif op == 'minus': final_val = val1 - val2
                 elif op == 'times': final_val = val1 * val2
                 
-                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {
                     'type': dtype, 'value': final_val, 
                     'level': f"Level {global_current_level}", 
                     'offset': current_offset, 
                     'space': f"{space_required} bytes",
-                    'order': order_id  # <--- Stamp the ID
+                    'order': order_id
                 }
                 global_level_offsets[global_current_level] += space_required
-                return True, f"Math calculated. {var_name} is now {final_val}."
+                success_msg = f"Math calculated. {var_name} is now {final_val}."
                 
+                # --- NEW: Check if 'close' is tagged at the end ---
+                if i + 7 < len(tokens) and tokens[i+6][0] == 'SCOPE_OUT':
+                    i += 6 # Point loop at SCOPE_OUT to process it next
+                else:
+                    i += 7
+                    
             else:
                 lit_type, raw_val = tokens[i+3][0], tokens[i+3][1].replace('"', '')
                 if dtype == 'hp' and lit_type != 'LITERAL_NUM': 
@@ -110,17 +119,26 @@ def run_web_semantics(tokens):
                 if dtype == 'lore' and lit_type != 'LITERAL_STR': 
                     return False, "Fatal Error: Cannot equip number to Lore."
                 
-                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {
                     'type': dtype, 'value': raw_val, 
                     'level': f"Level {global_current_level}", 
                     'offset': current_offset, 
                     'space': f"{space_required} bytes",
-                    'order': order_id  # <--- Stamp the ID
+                    'order': order_id
                 }
                 global_level_offsets[global_current_level] += space_required
-                return True, f"Successfully equipped {var_name}."
-        i += 1
+                success_msg = f"Successfully equipped {var_name}."
+                
+                # --- NEW: Check if 'close' is tagged at the end ---
+                if i + 5 < len(tokens) and tokens[i+4][0] == 'SCOPE_OUT':
+                    i += 4 # Point loop at SCOPE_OUT to process it next
+                else:
+                    i += 5
+        else:
+            i += 1
+
+    if success_msg:
+        return True, success_msg
     return False, "Unknown semantic error."
 
 @app.route('/')
