@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ForgeLang Web Console</title>
+    <style>
+        body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 50px; }
+        .container { max-width: 800px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
+        button { background-color: #00ff00; color: #000; font-size: 20px; padding: 15px 30px; border: none; cursor: pointer; font-weight: bold; margin: 20px 0; }
+        button:hover { background-color: #fff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
+        .log { margin-top: 20px; color: #ffcc00; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>=== FORGELANG AI CONSOLE ===</h1>
+    <p>Target Domain: Real-time RPG Memory Allocation</p>
+    
+    <button id="mic-btn" onclick="startListening()">🎤 CLICK TO SPEAK CODE</button>
+    
+    <h3 class="log" id="status-log">Awaiting voice input...</h3>
+    <p style="color: gray;">Recognized: <span id="recognized-text">None</span></p>
+
+    <h2>[ LIVE INVENTORY ]</h2>
+    <table id="inventory-table">
+        <thead>
+            <tr><th>Identifier</th><th>Data Type</th><th>Equipped Value</th></tr>
+        </thead>
+        <tbody id="inventory-body">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // 1. Setup the browser's native speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    // 2. Setup the browser's native text-to-speech
+    const synth = window.speechSynthesis;
+
+    function aiSpeak(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9; // Make it sound deliberate
+        utterance.pitch = 0.8;
+        synth.speak(utterance);
+    }
+
+    function startListening() {
+        document.getElementById('status-log').innerText = "🔴 LISTENING... SPEAK NOW";
+        recognition.start();
+    }
+
+    // When the browser hears your voice, it triggers this:
+    recognition.onresult = async function(event) {
+        const voiceText = event.results[0][0].transcript;
+        document.getElementById('status-log').innerText = "Processing compiler logic...";
+        document.getElementById('recognized-text').innerText = voiceText;
+
+        // 3. Send the voice text to our Python Backend!
+        const response = await fetch('/compile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: voiceText })
+        });
+
+        const data = await response.json();
+        
+        // 4. Update the UI with the results
+        document.getElementById('recognized-text').innerText = data.code; // The pre-processed camelCase version
+        document.getElementById('status-log').innerText = data.message;
+        
+        // Make the AI speak the result!
+        aiSpeak(data.message);
+
+        // 5. Redraw the Live Inventory Table
+        const tbody = document.getElementById('inventory-body');
+        tbody.innerHTML = '';
+        for (const [key, details] of Object.entries(data.inventory)) {
+            const row = `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
+            tbody.innerHTML += row;
+        }
+    };
+</script>
+
+</body>
+</html>
