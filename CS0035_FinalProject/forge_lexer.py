@@ -11,6 +11,12 @@ def run_lexer(source_code):
         if word in ['hp', 'lore', 'xp', 'status']:
             print(f"[LEXER] Found '{word}' -> Identified as DATATYPE")
             tokens.append(('DATATYPE', word))
+        elif word == 'begin':  # NEW
+            print(f"[LEXER] Found '{word}' -> Identified as SCOPE_IN")
+            tokens.append(('SCOPE_IN', word))
+        elif word == 'end':    # NEW
+            print(f"[LEXER] Found '{word}' -> Identified as SCOPE_OUT")
+            tokens.append(('SCOPE_OUT', word))
         elif word == 'spawn':
             print(f"[LEXER] Found '{word}' -> Identified as OUTPUT_KEYWORD")
             tokens.append(('OUTPUT', word))

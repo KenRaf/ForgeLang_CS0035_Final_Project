@@ -2,8 +2,13 @@ def run_parser(tokens):
     print("\n--- STARTING SYNTAX ANALYSIS ---")
     i = 0
     while i < len(tokens):
+        # NEW: Allow scope brackets to pass syntax check
+        if tokens[i][0] in ['SCOPE_IN', 'SCOPE_OUT']:
+            print(f"[PARSER] Valid scope modifier found.")
+            i += 1
+            continue
+            
         if tokens[i][0] == 'DATATYPE':
-            # Check if this is a math statement by looking 4 tokens ahead
             has_math = False
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 has_math = True
