@@ -4,46 +4,58 @@
     <meta charset="UTF-8">
     <title>ForgeLang Web Console</title>
     <style>
-        body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 50px; }
+        body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 30px; }
         .container { max-width: 900px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
+        
+        /* TAB STYLES */
+        .tab-header { display: flex; justify-content: center; margin-bottom: 20px; }
+        .tab-btn { background-color: #003300; border: 1px solid #00ff00; color: #00ff00; padding: 10px 20px; cursor: pointer; font-family: monospace; font-size: 16px; margin: 0 5px; font-weight: bold; }
+        .tab-btn.active { background-color: #00ff00; color: #000; }
+        .tab-content { display: none; padding: 20px; border: 1px dashed #00ff00; background-color: #050505; margin-bottom: 20px;}
+        .tab-content.active { display: block; }
+        
         button { font-size: 20px; padding: 15px 30px; border: none; cursor: pointer; font-weight: bold; margin: 10px; }
         #mic-btn { background-color: #00ff00; color: #000; }
         #mic-btn:hover { background-color: #fff; }
-        #reset-btn { background-color: #ff0000; color: #fff; }
+        #run-btn { background-color: #00ff00; color: #000; width: 100%; margin-top: 15px;}
+        #run-btn:hover { background-color: #fff; }
+        #reset-btn { background-color: #ff0000; color: #fff; margin-top: 20px;}
         #reset-btn:hover { background-color: #ff6666; }
+        
+        textarea { width: 100%; height: 150px; background-color: #000; color: #00ff00; border: 1px solid #33ff33; padding: 15px; font-family: monospace; font-size: 18px; box-sizing: border-box; resize: vertical; }
+        textarea:focus { outline: none; box-shadow: inset 0 0 10px #00ff00; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #050505; }
         th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
         th { background-color: #003300; }
         .log { margin-top: 20px; color: #ffcc00; }
         
-        #terminal-box {
-            background-color: #000;
-            color: #00ff00;
-            text-align: left;
-            padding: 20px;
-            border: 1px solid #33ff33;
-            height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap; 
-            margin-top: 20px;
-            font-family: monospace;
-            box-shadow: inset 0 0 10px #000000;
-        }
+        #terminal-box { background-color: #000; color: #00ff00; text-align: left; padding: 20px; border: 1px solid #33ff33; height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 20px; font-family: monospace; box-shadow: inset 0 0 10px #000000; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>=== FORGELANG AI CONSOLE ===</h1>
+    <h1>=== FORGELANG AI IDE ===</h1>
     <p>Target Domain: Real-time RPG Memory Allocation</p>
     
-    <div>
-        <button id="mic-btn" onclick="startListening()">[ CLICK TO SPEAK CODE ]</button>
-        <button id="reset-btn" onclick="wipeMemory()">[ WIPE MEMORY ]</button>
+    <div class="tab-header">
+        <button class="tab-btn active" onclick="switchTab(event, 'voice-tab')">🎤 VOICE INPUT</button>
+        <button class="tab-btn" onclick="switchTab(event, 'code-tab')">⌨️ TEXT INPUT</button>
+    </div>
+
+    <div id="voice-tab" class="tab-content active">
+        <button id="mic-btn" onclick="startListening()">[ CLICK TO SPEAK ]</button>
+        <p style="color: gray;">Recognized: <span id="recognized-text">None</span></p>
+    </div>
+
+    <div id="code-tab" class="tab-content">
+        <textarea id="code-editor" placeholder="// Write ForgeLang script here...&#10;begin hp bossHealth equip 5000 done&#10;lore bossName equip dragon close done"></textarea>
+        <button id="run-btn" onclick="compileTextCode()">[ RUN SCRIPT ]</button>
     </div>
     
-    <h3 class="log" id="status-log">Awaiting voice input...</h3>
-    <p style="color: gray;">Recognized: <span id="recognized-text">None</span></p>
+    <h3 class="log" id="status-log">System Ready.</h3>
+    <button id="reset-btn" onclick="wipeMemory()">[ WIPE CORE MEMORY ]</button>
 
     <div id="terminal-box">
         <span style="color: gray;">> System Online. Waiting for compilation logs...</span>
@@ -54,8 +66,7 @@
         <thead>
             <tr><th>Identifier</th><th>Data Type</th><th>Equipped Value</th></tr>
         </thead>
-        <tbody id="inventory-body">
-        </tbody>
+        <tbody id="inventory-body"></tbody>
     </table>
 
     <h2>[ TRUE SYMBOL TABLE (MEMORY MAP) ]</h2>
@@ -63,8 +74,7 @@
         <thead>
             <tr><th>Identifier</th><th>Data Type</th><th>Scope Level</th><th>Memory Offset</th><th>Total Space</th></tr>
         </thead>
-        <tbody id="symbol-body">
-        </tbody>
+        <tbody id="symbol-body"></tbody>
     </table>
 </div>
 
@@ -73,13 +83,48 @@
     const recognition = new SpeechRecognition();
     const synth = window.speechSynthesis;
 
+    // --- TAB SWITCHING LOGIC ---
+    function switchTab(evt, tabId) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+
     function aiSpeak(text) {
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9; 
-        utterance.pitch = 0.8;
+        utterance.rate = 0.9; utterance.pitch = 0.8;
         synth.speak(utterance);
     }
 
+    // --- UNIVERSAL RENDER LOGIC ---
+    function renderOutputs(data) {
+        document.getElementById('status-log').innerText = data.message;
+        
+        document.getElementById('terminal-box').innerText = data.terminal_logs;
+        const terminal = document.getElementById('terminal-box');
+        terminal.scrollTop = terminal.scrollHeight;
+
+        aiSpeak(data.message);
+
+        const invBody = document.getElementById('inventory-body');
+        invBody.innerHTML = '';
+        const symBody = document.getElementById('symbol-body');
+        symBody.innerHTML = '';
+
+        const sortedInventory = Object.entries(data.inventory).sort((a, b) => a[1].order - b[1].order);
+
+        for (const [key, details] of sortedInventory) {
+            invBody.innerHTML += `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
+            symBody.innerHTML += `<tr>
+                <td>${key}</td><td style="color: #ffcc00;">${details.type}</td>
+                <td style="color: #00ffff;">${details.level}</td><td style="color: #ff00ff;">${details.offset}</td>
+                <td>${details.space}</td>
+            </tr>`;
+        }
+    }
+
+    // --- VOICE INPUT LOGIC ---
     function startListening() {
         document.getElementById('status-log').innerText = "[ LISTENING... SPEAK NOW ]";
         recognition.start();
@@ -93,55 +138,49 @@
         const response = await fetch('/compile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: voiceText })
+            body: JSON.stringify({ code: voiceText, mode: 'voice' })
         });
 
         const data = await response.json();
         
-        document.getElementById('recognized-text').innerText = data.code; 
-        document.getElementById('status-log').innerText = data.message;
-        
-        document.getElementById('terminal-box').innerText = data.terminal_logs;
-        const terminal = document.getElementById('terminal-box');
-        terminal.scrollTop = terminal.scrollHeight;
-
-        aiSpeak(data.message);
-
-        const invBody = document.getElementById('inventory-body');
-        invBody.innerHTML = '';
-        
-        const symBody = document.getElementById('symbol-body');
-        symBody.innerHTML = '';
-
-        // --- THE CHRONOLOGICAL SORTING LOGIC ---
-        const sortedInventory = Object.entries(data.inventory).sort((a, b) => a[1].order - b[1].order);
-
-        for (const [key, details] of sortedInventory) {
-            const invRow = `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
-            invBody.innerHTML += invRow;
-
-            const symRow = `<tr>
-                <td>${key}</td>
-                <td style="color: #ffcc00;">${details.type}</td>
-                <td style="color: #00ffff;">${details.level}</td>
-                <td style="color: #ff00ff;">${details.offset}</td>
-                <td>${details.space}</td>
-            </tr>`;
-            symBody.innerHTML += symRow;
+        // --- THE MAGIC SCRIBE FEATURE ---
+        // Automatically write the processed voice code into the Text Editor!
+        if (data.status === 'success') {
+            const editor = document.getElementById('code-editor');
+            editor.value += data.code + '\n'; 
         }
+
+        renderOutputs(data);
     };
 
+    // --- TEXT INPUT LOGIC ---
+    async function compileTextCode() {
+        const textCode = document.getElementById('code-editor').value;
+        if (!textCode.trim()) return;
+
+        document.getElementById('status-log').innerText = "Compiling written script...";
+
+        const response = await fetch('/compile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: textCode, mode: 'text' })
+        });
+
+        const data = await response.json();
+        renderOutputs(data);
+    }
+
+    // --- MEMORY WIPE LOGIC ---
     async function wipeMemory() {
         document.getElementById('status-log').innerText = "Purging memory banks...";
         
-        const response = await fetch('/reset', { method: 'POST' });
-        const data = await response.json();
+        await fetch('/reset', { method: 'POST' });
         
-        // Clear UI Elements
         document.getElementById('inventory-body').innerHTML = '';
         document.getElementById('symbol-body').innerHTML = '';
         document.getElementById('terminal-box').innerHTML = '<span style="color: gray;">> Memory purged. System Online. Waiting for compilation logs...</span>';
         document.getElementById('recognized-text').innerText = 'None';
+        document.getElementById('code-editor').value = ''; // Also clears the scribe editor!
         document.getElementById('status-log').innerText = '[ RAM CLEARED ]';
         
         aiSpeak("Memory successfully purged.");

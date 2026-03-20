@@ -10,7 +10,7 @@ app = Flask(__name__)
 global_inventory = {}
 global_level_offsets = {0: 0}  
 global_current_level = 0       
-global_order_counter = 0     # <--- NEW: Tracks chronological order
+global_order_counter = 0     
 
 TYPE_SIZES = {
     'hp': 4,
@@ -106,9 +106,8 @@ def run_web_semantics(tokens):
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
                 
-                # --- NEW: Check if 'close' is tagged at the end ---
                 if i + 7 < len(tokens) and tokens[i+6][0] == 'SCOPE_OUT':
-                    i += 6 # Point loop at SCOPE_OUT to process it next
+                    i += 6 
                 else:
                     i += 7
                     
@@ -129,9 +128,8 @@ def run_web_semantics(tokens):
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
                 
-                # --- NEW: Check if 'close' is tagged at the end ---
                 if i + 5 < len(tokens) and tokens[i+4][0] == 'SCOPE_OUT':
-                    i += 4 # Point loop at SCOPE_OUT to process it next
+                    i += 4 
                 else:
                     i += 5
         else:
@@ -148,7 +146,8 @@ def home():
 @app.route('/compile', methods=['POST'])
 def compile_code():
     data = request.json
-    raw_voice = data.get('code', '')
+    raw_code = data.get('code', '')
+    mode = data.get('mode', 'voice') # NEW: Determine if voice or text input
     
     captured_output = io.StringIO()
     sys.stdout = captured_output
@@ -158,9 +157,14 @@ def compile_code():
     fixed_code = ""
     
     try:
-        fixed_code = format_web_voice(raw_voice)
-        print(f"[RECEIVED CODE] >>> {fixed_code} <<<")
-        
+        if mode == 'voice':
+            fixed_code = format_web_voice(raw_code)
+            print(f"[VOICE IN] >>> {fixed_code} <<<")
+        else:
+            # For text mode, respect exactly what they typed
+            fixed_code = raw_code.strip()
+            print(f"[TEXT IN] >>>\n{fixed_code}\n<<<")
+            
         tokens = run_lexer(fixed_code)
         
         if not run_parser(tokens):
@@ -171,7 +175,6 @@ def compile_code():
             print(f"\n[FORGE-AI]: {msg}")
             
             if success:
-                # --- NEW: Sort the terminal output chronologically ---
                 sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
                 
                 print("\n" + "="*45)
@@ -212,7 +215,7 @@ def reset_memory():
     global_inventory.clear()
     global_level_offsets = {0: 0}
     global_current_level = 0
-    global_order_counter = 0  # <--- NEW: Reset the ID tracker
+    global_order_counter = 0  
     
     return jsonify({"status": "success", "message": "Memory purged successfully."})
 
