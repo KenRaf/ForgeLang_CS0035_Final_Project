@@ -5,14 +5,14 @@
     <title>ForgeLang Web Console</title>
     <style>
         body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 50px; }
-        .container { max-width: 800px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
+        .container { max-width: 900px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
         button { background-color: #00ff00; color: #000; font-size: 20px; padding: 15px 30px; border: none; cursor: pointer; font-weight: bold; margin: 20px 0; }
         button:hover { background-color: #fff; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #050505; }
         th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
+        th { background-color: #003300; }
         .log { margin-top: 20px; color: #ffcc00; }
         
-        /* NEW TERMINAL STYLES */
         #terminal-box {
             background-color: #000;
             color: #00ff00;
@@ -21,7 +21,7 @@
             border: 1px solid #33ff33;
             height: 300px;
             overflow-y: auto;
-            white-space: pre-wrap; /* Keeps Python's print formatting exact */
+            white-space: pre-wrap; 
             margin-top: 20px;
             font-family: monospace;
             box-shadow: inset 0 0 10px #000000;
@@ -49,6 +49,15 @@
             <tr><th>Identifier</th><th>Data Type</th><th>Equipped Value</th></tr>
         </thead>
         <tbody id="inventory-body">
+        </tbody>
+    </table>
+
+    <h2>[ TRUE SYMBOL TABLE (MEMORY MAP) ]</h2>
+    <table id="symbol-table">
+        <thead>
+            <tr><th>Identifier</th><th>Data Type</th><th>Scope Level</th><th>Memory Offset</th><th>Total Space</th></tr>
+        </thead>
+        <tbody id="symbol-body">
         </tbody>
     </table>
 </div>
@@ -86,19 +95,34 @@
         document.getElementById('recognized-text').innerText = data.code; 
         document.getElementById('status-log').innerText = data.message;
         
-        // INJECT THE PYTHON LOGS INTO THE TERMINAL BOX
         document.getElementById('terminal-box').innerText = data.terminal_logs;
-        // Auto-scroll the terminal to the bottom
         const terminal = document.getElementById('terminal-box');
         terminal.scrollTop = terminal.scrollHeight;
 
         aiSpeak(data.message);
 
-        const tbody = document.getElementById('inventory-body');
-        tbody.innerHTML = '';
+        // Populate Live Inventory
+        const invBody = document.getElementById('inventory-body');
+        invBody.innerHTML = '';
+        
+        // Populate Symbol Table
+        const symBody = document.getElementById('symbol-body');
+        symBody.innerHTML = '';
+
         for (const [key, details] of Object.entries(data.inventory)) {
-            const row = `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
-            tbody.innerHTML += row;
+            // Draw Inventory Row
+            const invRow = `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
+            invBody.innerHTML += invRow;
+
+            // Draw Symbol Table Row
+            const symRow = `<tr>
+                <td>${key}</td>
+                <td style="color: #ffcc00;">${details.type}</td>
+                <td style="color: #00ffff;">${details.level}</td>
+                <td style="color: #ff00ff;">${details.offset}</td>
+                <td>${details.space}</td>
+            </tr>`;
+            symBody.innerHTML += symRow;
         }
     };
 </script>

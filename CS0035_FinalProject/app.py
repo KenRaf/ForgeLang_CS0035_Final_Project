@@ -6,12 +6,24 @@ import io
 
 app = Flask(__name__)
 
+# Global memory state
 global_inventory = {}
+global_memory_offset = 0  # Tracks exactly where we are in RAM
+
+# Memory footprint rules for the DSL
+TYPE_SIZES = {
+    'hp': 4,
+    'xp': 4,
+    'status': 2,
+    'lore': 64
+}
 
 def format_web_voice(raw_text):
     raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ')
     words = raw_text.lower().split()
-    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times']
+    
+    # CRITICAL: Added 'begin' and 'end' so the compiler doesn't squash them
+    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'end']
     
     processed_words = []
     i = 0
@@ -31,21 +43,42 @@ def format_web_voice(raw_text):
             i += 1
             
     final_string = " ".join(processed_words)
-    if not final_string.endswith("done"):
+    
+    # We only auto-append 'done' if the user didn't close a scope bracket
+    if not final_string.endswith("done") and not final_string.endswith("end"):
         final_string += " done"
     return final_string
 
 def run_web_semantics(tokens):
+    global global_memory_offset
     print("\n--- STARTING SEMANTIC ANALYSIS ---")
     i = 0
+    current_level = 0
+    
     while i < len(tokens):
-        if tokens[i][0] == 'DATATYPE':
-            dtype = tokens[i][1]
-            var_name = tokens[i+1][1]
+        token_type = tokens[i][0]
+        token_val = tokens[i][1]
+        
+        # Track Scope Levels dynamically
+        if token_type == 'SCOPE_IN':
+            current_level += 1
+            print(f"[SEMANTICS] Scope opened. Dropping to Level {current_level}.")
+            i += 1
+            continue
+        elif token_type == 'SCOPE_OUT':
+            print(f"[SEMANTICS] Scope closed. Returning to Level {current_level - 1}.")
+            current_level = max(0, current_level - 1)
+            i += 1
+            continue
             
+        if token_type == 'DATATYPE':
+            dtype = token_val
+            var_name = tokens[i+1][1]
+            space_required = TYPE_SIZES.get(dtype, 4)
+            
+            # --- MATH LOGIC ---
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 if dtype not in ['hp', 'xp']: 
-                    print(f"[SEMANTICS] FATAL ERROR: Cannot perform math on non-numeric '{dtype}'.")
                     return False, "Fatal Error: Math on non-numeric type."
                 
                 val1, op, val2 = int(tokens[i+3][1]), tokens[i+4][1], int(tokens[i+5][1])
@@ -53,21 +86,32 @@ def run_web_semantics(tokens):
                 elif op == 'minus': final_val = val1 - val2
                 elif op == 'times': final_val = val1 * val2
                 
-                print(f"[SEMANTICS] Math recognized. Calculating: {val1} {op} {val2} = {final_val}")
-                global_inventory[var_name] = {'type': dtype, 'value': final_val}
+                print(f"[SEMANTICS] Allocating {space_required} bytes at Offset {global_memory_offset}.")
+                global_inventory[var_name] = {
+                    'type': dtype, 'value': final_val, 
+                    'level': f"Level {current_level}", 
+                    'offset': global_memory_offset, 
+                    'space': f"{space_required} bytes"
+                }
+                global_memory_offset += space_required
                 return True, f"Math calculated. {var_name} is now {final_val}."
                 
+            # --- STANDARD ASSIGNMENT ---
             else:
                 lit_type, raw_val = tokens[i+3][0], tokens[i+3][1].replace('"', '')
                 if dtype == 'hp' and lit_type != 'LITERAL_NUM': 
-                    print(f"[SEMANTICS] FATAL ERROR: Cannot equip STRING into numeric 'hp' stat.")
                     return False, "Fatal Error: Cannot equip text to HP."
                 if dtype == 'lore' and lit_type != 'LITERAL_STR': 
-                    print(f"[SEMANTICS] FATAL ERROR: Cannot equip NUMBER into text 'lore' stat.")
                     return False, "Fatal Error: Cannot equip number to Lore."
                 
-                print(f"[SEMANTICS] Types match. Binding '{var_name}' to Symbol Table.")
-                global_inventory[var_name] = {'type': dtype, 'value': raw_val}
+                print(f"[SEMANTICS] Allocating {space_required} bytes at Offset {global_memory_offset}.")
+                global_inventory[var_name] = {
+                    'type': dtype, 'value': raw_val, 
+                    'level': f"Level {current_level}", 
+                    'offset': global_memory_offset, 
+                    'space': f"{space_required} bytes"
+                }
+                global_memory_offset += space_required
                 return True, f"Successfully equipped {var_name}."
         i += 1
     return False, "Unknown semantic error."
@@ -81,8 +125,6 @@ def compile_code():
     data = request.json
     raw_voice = data.get('code', '')
     
-    # [STREAM INTERCEPTION START] 
-    # Hijack Python's print function and route it to 'captured_output'
     captured_output = io.StringIO()
     sys.stdout = captured_output
     
@@ -103,23 +145,30 @@ def compile_code():
             success, msg = run_web_semantics(tokens)
             print(f"\n[FORGE-AI]: {msg}")
             
-            # Print the UI table to the hidden terminal logs if successful
             if success:
+                # 1. Print standard Live Inventory
                 print("\n" + "="*45)
-                print(f"||{'LIVE INVENTORY (SYMBOL TABLE)':^41}||")
+                print(f"||{'LIVE INVENTORY STATE':^41}||")
                 print("="*45)
                 print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'VALUE':<10} ||")
                 print("-" * 45)
                 for var, d in global_inventory.items():
-                    print(f"|| {var:<15} | {d['type']:<7} | {d['value']:<10} ||")
-                print("="*45 + "\n")
+                    print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
+                print("="*45)
+                
+                # 2. Print the TRUE Memory Symbol Table
+                print("\n" + "="*66)
+                print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
+                print("="*66)
+                print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
+                print("-" * 66)
+                for var, d in global_inventory.items():
+                    print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
+                print("="*66 + "\n")
                 
     finally:
-        # [STREAM INTERCEPTION END]
-        # Always give print() back to the system
         sys.stdout = sys.__stdout__
         
-    # Grab all the print statements we hijacked as a single text block
     terminal_logs = captured_output.getvalue()
     
     return jsonify({
