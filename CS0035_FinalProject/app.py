@@ -8,9 +8,8 @@ app = Flask(__name__)
 
 # Global memory state
 global_inventory = {}
-global_memory_offset = 0  # Tracks exactly where we are in RAM
+global_memory_offset = 0  
 
-# Memory footprint rules for the DSL
 TYPE_SIZES = {
     'hp': 4,
     'xp': 4,
@@ -22,7 +21,6 @@ def format_web_voice(raw_text):
     raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ')
     words = raw_text.lower().split()
     
-    # CRITICAL: Added 'begin' and 'end' so the compiler doesn't squash them
     keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'end']
     
     processed_words = []
@@ -44,7 +42,6 @@ def format_web_voice(raw_text):
             
     final_string = " ".join(processed_words)
     
-    # We only auto-append 'done' if the user didn't close a scope bracket
     if not final_string.endswith("done") and not final_string.endswith("end"):
         final_string += " done"
     return final_string
@@ -59,7 +56,6 @@ def run_web_semantics(tokens):
         token_type = tokens[i][0]
         token_val = tokens[i][1]
         
-        # Track Scope Levels dynamically
         if token_type == 'SCOPE_IN':
             current_level += 1
             print(f"[SEMANTICS] Scope opened. Dropping to Level {current_level}.")
@@ -76,7 +72,6 @@ def run_web_semantics(tokens):
             var_name = tokens[i+1][1]
             space_required = TYPE_SIZES.get(dtype, 4)
             
-            # --- MATH LOGIC ---
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 if dtype not in ['hp', 'xp']: 
                     return False, "Fatal Error: Math on non-numeric type."
@@ -96,7 +91,6 @@ def run_web_semantics(tokens):
                 global_memory_offset += space_required
                 return True, f"Math calculated. {var_name} is now {final_val}."
                 
-            # --- STANDARD ASSIGNMENT ---
             else:
                 lit_type, raw_val = tokens[i+3][0], tokens[i+3][1].replace('"', '')
                 if dtype == 'hp' and lit_type != 'LITERAL_NUM': 
@@ -146,7 +140,6 @@ def compile_code():
             print(f"\n[FORGE-AI]: {msg}")
             
             if success:
-                # 1. Print standard Live Inventory
                 print("\n" + "="*45)
                 print(f"||{'LIVE INVENTORY STATE':^41}||")
                 print("="*45)
@@ -156,7 +149,6 @@ def compile_code():
                     print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
                 print("="*45)
                 
-                # 2. Print the TRUE Memory Symbol Table
                 print("\n" + "="*66)
                 print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
                 print("="*66)
@@ -178,6 +170,17 @@ def compile_code():
         "code": fixed_code,
         "terminal_logs": terminal_logs
     })
+
+# --- NEW ROUTE: PURGE MEMORY ---
+@app.route('/reset', methods=['POST'])
+def reset_memory():
+    global global_inventory
+    global global_memory_offset
+    
+    global_inventory.clear()
+    global_memory_offset = 0
+    
+    return jsonify({"status": "success", "message": "Memory purged successfully."})
 
 if __name__ == "__main__":
     app.run(debug=True)

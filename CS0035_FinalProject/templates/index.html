@@ -6,8 +6,11 @@
     <style>
         body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 50px; }
         .container { max-width: 900px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
-        button { background-color: #00ff00; color: #000; font-size: 20px; padding: 15px 30px; border: none; cursor: pointer; font-weight: bold; margin: 20px 0; }
-        button:hover { background-color: #fff; }
+        button { font-size: 20px; padding: 15px 30px; border: none; cursor: pointer; font-weight: bold; margin: 10px; }
+        #mic-btn { background-color: #00ff00; color: #000; }
+        #mic-btn:hover { background-color: #fff; }
+        #reset-btn { background-color: #ff0000; color: #fff; }
+        #reset-btn:hover { background-color: #ff6666; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #050505; }
         th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
         th { background-color: #003300; }
@@ -34,7 +37,10 @@
     <h1>=== FORGELANG AI CONSOLE ===</h1>
     <p>Target Domain: Real-time RPG Memory Allocation</p>
     
-    <button id="mic-btn" onclick="startListening()">[ CLICK TO SPEAK CODE ]</button>
+    <div>
+        <button id="mic-btn" onclick="startListening()">[ CLICK TO SPEAK CODE ]</button>
+        <button id="reset-btn" onclick="wipeMemory()">[ WIPE MEMORY ]</button>
+    </div>
     
     <h3 class="log" id="status-log">Awaiting voice input...</h3>
     <p style="color: gray;">Recognized: <span id="recognized-text">None</span></p>
@@ -101,20 +107,16 @@
 
         aiSpeak(data.message);
 
-        // Populate Live Inventory
         const invBody = document.getElementById('inventory-body');
         invBody.innerHTML = '';
         
-        // Populate Symbol Table
         const symBody = document.getElementById('symbol-body');
         symBody.innerHTML = '';
 
         for (const [key, details] of Object.entries(data.inventory)) {
-            // Draw Inventory Row
             const invRow = `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
             invBody.innerHTML += invRow;
 
-            // Draw Symbol Table Row
             const symRow = `<tr>
                 <td>${key}</td>
                 <td style="color: #ffcc00;">${details.type}</td>
@@ -125,6 +127,23 @@
             symBody.innerHTML += symRow;
         }
     };
+
+    // --- NEW JS FUNCTION: WIPE MEMORY ---
+    async function wipeMemory() {
+        document.getElementById('status-log').innerText = "Purging memory banks...";
+        
+        const response = await fetch('/reset', { method: 'POST' });
+        const data = await response.json();
+        
+        // Clear UI Elements
+        document.getElementById('inventory-body').innerHTML = '';
+        document.getElementById('symbol-body').innerHTML = '';
+        document.getElementById('terminal-box').innerHTML = '<span style="color: gray;">> Memory purged. System Online. Waiting for compilation logs...</span>';
+        document.getElementById('recognized-text').innerText = 'None';
+        document.getElementById('status-log').innerText = '[ RAM CLEARED ]';
+        
+        aiSpeak("Memory successfully purged.");
+    }
 </script>
 
 </body>
