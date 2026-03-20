@@ -113,7 +113,10 @@
         const symBody = document.getElementById('symbol-body');
         symBody.innerHTML = '';
 
-        for (const [key, details] of Object.entries(data.inventory)) {
+        // --- THE CHRONOLOGICAL SORTING LOGIC ---
+        const sortedInventory = Object.entries(data.inventory).sort((a, b) => a[1].order - b[1].order);
+
+        for (const [key, details] of sortedInventory) {
             const invRow = `<tr><td>${key}</td><td>${details.type}</td><td>${details.value}</td></tr>`;
             invBody.innerHTML += invRow;
 
@@ -128,7 +131,6 @@
         }
     };
 
-    // --- NEW JS FUNCTION: WIPE MEMORY ---
     async function wipeMemory() {
         document.getElementById('status-log').innerText = "Purging memory banks...";
         

@@ -10,6 +10,7 @@ app = Flask(__name__)
 global_inventory = {}
 global_level_offsets = {0: 0}  
 global_current_level = 0       
+global_order_counter = 0     # <--- NEW: Tracks chronological order
 
 TYPE_SIZES = {
     'hp': 4,
@@ -22,7 +23,6 @@ def format_web_voice(raw_text):
     raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ')
     words = raw_text.lower().split()
     
-    # <--- UPDATED KEYWORD LIST
     keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'close']
     
     processed_words = []
@@ -44,13 +44,12 @@ def format_web_voice(raw_text):
             
     final_string = " ".join(processed_words)
     
-    # <--- UPDATED ENDSWITH CHECK
     if not final_string.endswith("done") and not final_string.endswith("close"):
         final_string += " done"
     return final_string
 
 def run_web_semantics(tokens):
-    global global_inventory, global_level_offsets, global_current_level
+    global global_inventory, global_level_offsets, global_current_level, global_order_counter
     print(f"\n--- STARTING SEMANTIC ANALYSIS (State: Level {global_current_level}) ---")
     i = 0
     
@@ -77,6 +76,13 @@ def run_web_semantics(tokens):
             space_required = TYPE_SIZES.get(dtype, 4)
             current_offset = global_level_offsets[global_current_level]
             
+            # --- NEW: Assign chronological ID ---
+            if var_name not in global_inventory:
+                global_order_counter += 1
+                order_id = global_order_counter
+            else:
+                order_id = global_inventory[var_name]['order']
+            
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 if dtype not in ['hp', 'xp']: 
                     return False, "Fatal Error: Math on non-numeric type."
@@ -91,7 +97,8 @@ def run_web_semantics(tokens):
                     'type': dtype, 'value': final_val, 
                     'level': f"Level {global_current_level}", 
                     'offset': current_offset, 
-                    'space': f"{space_required} bytes"
+                    'space': f"{space_required} bytes",
+                    'order': order_id  # <--- Stamp the ID
                 }
                 global_level_offsets[global_current_level] += space_required
                 return True, f"Math calculated. {var_name} is now {final_val}."
@@ -108,7 +115,8 @@ def run_web_semantics(tokens):
                     'type': dtype, 'value': raw_val, 
                     'level': f"Level {global_current_level}", 
                     'offset': current_offset, 
-                    'space': f"{space_required} bytes"
+                    'space': f"{space_required} bytes",
+                    'order': order_id  # <--- Stamp the ID
                 }
                 global_level_offsets[global_current_level] += space_required
                 return True, f"Successfully equipped {var_name}."
@@ -145,12 +153,15 @@ def compile_code():
             print(f"\n[FORGE-AI]: {msg}")
             
             if success:
+                # --- NEW: Sort the terminal output chronologically ---
+                sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
+                
                 print("\n" + "="*45)
                 print(f"||{'LIVE INVENTORY STATE':^41}||")
                 print("="*45)
                 print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'VALUE':<10} ||")
                 print("-" * 45)
-                for var, d in global_inventory.items():
+                for var, d in sorted_inv:
                     print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
                 print("="*45)
                 
@@ -159,7 +170,7 @@ def compile_code():
                 print("="*66)
                 print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
                 print("-" * 66)
-                for var, d in global_inventory.items():
+                for var, d in sorted_inv:
                     print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
                 print("="*66 + "\n")
                 
@@ -178,11 +189,12 @@ def compile_code():
 
 @app.route('/reset', methods=['POST'])
 def reset_memory():
-    global global_inventory, global_level_offsets, global_current_level
+    global global_inventory, global_level_offsets, global_current_level, global_order_counter
     
     global_inventory.clear()
     global_level_offsets = {0: 0}
     global_current_level = 0
+    global_order_counter = 0  # <--- NEW: Reset the ID tracker
     
     return jsonify({"status": "success", "message": "Memory purged successfully."})
 
