@@ -14,14 +14,15 @@ global_order_counter = 0
 TYPE_SIZES = {'hp': 4, 'xp': 4, 'status': 2, 'lore': 64}
 
 def format_web_voice(raw_text):
-    raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ')
+    raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ').replace('=', ' equals ').replace('>', ' greater ').replace('<', ' less ')
     words = raw_text.lower().split()
-    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'close']
+    # Updated Voice Keywords Dictionary
+    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'close', 'skill', 'cast', 'loop', 'for', 'while', 'do', 'to', 'greater', 'less', 'equals']
     
     processed_words = []
     i = 0
     while i < len(words):
-        if words[i] in ['hp', 'lore', 'xp', 'status', 'spawn']:
+        if words[i] in ['hp', 'lore', 'xp', 'status', 'spawn', 'skill', 'cast']:
             processed_words.append(words[i]) 
             i += 1
             var_name_parts = []
@@ -59,14 +60,104 @@ def run_web_semantics(tokens):
             success_msg = f"Scope opened at Level {global_current_level}."
             i += 1
             continue
+            
         elif token_type == 'SCOPE_OUT':
             global_current_level = max(0, global_current_level - 1)
             current_offset = global_level_offsets.get(global_current_level, 0)
-            print(f"[SEMANTICS] Line {token_line}: Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
-            if not success_msg: success_msg = f"Scope closed. Returned to Level {global_current_level}."
-            i += 1
+            
+            # DO-WHILE CLOSURE
+            if i + 5 < len(tokens) and tokens[i+1][0] == 'LOOP_TYPE' and tokens[i+1][1] == 'while':
+                cmp_var = tokens[i+2][1]
+                cmp_op = tokens[i+3][1]
+                cmp_val = tokens[i+4][1]
+                print(f"[SEMANTICS] Line {token_line}: Do-While loop closed and condition checked ({cmp_var} {cmp_op} {cmp_val}). Returned to Level {global_current_level}.")
+                i += 6
+                continue
+            else:
+                print(f"[SEMANTICS] Line {token_line}: Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
+                if not success_msg: success_msg = f"Scope closed. Returned to Level {global_current_level}."
+                i += 1
+                continue
+
+        # --- FUNCTIONS ---
+        elif token_type == 'FUNC_DECL':
+            func_name = tokens[i+1][1]
+            if func_name not in global_inventory:
+                global_order_counter += 1
+                order_id = global_order_counter
+            else: order_id = global_inventory[func_name]['order']
+                
+            current_offset = global_level_offsets.get(global_current_level, 0)
+            global_inventory[func_name] = {'type': 'skill', 'value': '[Func Block]', 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': "8 bytes", 'width_int': 8, 'order': order_id}
+            global_level_offsets[global_current_level] += 8
+            
+            print(f"[SEMANTICS] Line {token_line}: Declared skill '{func_name}'. Allocated 8 byte pointer.")
+            
+            # Auto-trigger the scope
+            global_current_level += 1
+            global_level_offsets[global_current_level] = 0
+            print(f"[SEMANTICS] Line {token_line}: Skill Scope opened. Dropped to Level {global_current_level}.")
+            i += 3
             continue
             
+        elif token_type == 'FUNC_CALL':
+            func_name = tokens[i+1][1]
+            if func_name not in global_inventory or global_inventory[func_name]['type'] != 'skill':
+                return False, {"type": "SEMANTIC ERROR", "line": token_line, "reason": f"Undeclared skill '{func_name}'.", "rule": "You cannot cast a skill that hasn't been declared.", "fix": "Declare it first.", "suggestion": f"skill {func_name} begin ... close"}
+            print(f"[SEMANTICS] Line {token_line}: Successfully casted skill '{func_name}'.")
+            success_msg = f"Casted {func_name}."
+            i += 3
+            continue
+
+        # --- LOOPS ---
+        elif token_type == 'LOOP_TYPE' and token_val == 'do':
+            print(f"[SEMANTICS] Line {token_line}: Do-While Loop started.")
+            global_current_level += 1
+            global_level_offsets[global_current_level] = 0
+            i += 2
+            continue
+            
+        elif token_type == 'LOOP_START':
+            l_type = tokens[i+1][1]
+            if l_type == 'for':
+                dtype = tokens[i+2][1].lower()
+                var_name = tokens[i+3][1]
+                start_val = tokens[i+5][1]
+                end_val = tokens[i+7][1]
+                
+                if var_name not in global_inventory:
+                    global_order_counter += 1
+                    order_id = global_order_counter
+                else: order_id = global_inventory[var_name]['order']
+                    
+                space_required = TYPE_SIZES.get(dtype, 4)
+                
+                global_current_level += 1
+                global_level_offsets[global_current_level] = 0
+                current_offset = global_level_offsets[global_current_level]
+                
+                global_inventory[var_name] = {'type': dtype, 'value': f"{start_val} to {end_val}", 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': f"{space_required} bytes", 'width_int': space_required, 'order': order_id}
+                global_level_offsets[global_current_level] += space_required
+                
+                print(f"[SEMANTICS] Line {token_line}: For Loop opened. Iterator '{var_name}' bound to Level {global_current_level}.")
+                i += 9
+                continue
+                
+            elif l_type == 'while':
+                var_name = tokens[i+2][1]
+                cmp_op = tokens[i+3][1]
+                cmp_val = tokens[i+4][1]
+                
+                if var_name not in global_inventory:
+                    return False, {"type": "SEMANTIC ERROR", "line": token_line, "reason": f"Undeclared variable '{var_name}' in condition.", "rule": "While loops must check an existing variable.", "fix": "Declare it first.", "suggestion": f"hp {var_name} equip 100 done"}
+                    
+                global_current_level += 1
+                global_level_offsets[global_current_level] = 0
+                print(f"[SEMANTICS] Line {token_line}: While Loop opened at Level {global_current_level}. Condition bound: {var_name} {cmp_op} {cmp_val}.")
+                i += 6
+                continue
+
+        # --- STANDARD ASSIGNMENTS ---
         elif token_type == 'DATATYPE':
             dtype = token_val.lower() 
             var_name = tokens[i+1][1]
@@ -95,8 +186,6 @@ def run_web_semantics(tokens):
                 elif op == 'times': final_val = val1 * val2
                 
                 print(f"[SEMANTICS] Line {token_line}: Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                
-                # CHANGED 'space' to 'width'
                 global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': f"{space_required} bytes", 'width_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
@@ -122,8 +211,6 @@ def run_web_semantics(tokens):
                     }
                 
                 print(f"[SEMANTICS] Line {token_line}: Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                
-                # CHANGED 'space' to 'width'
                 global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': f"{space_required} bytes", 'width_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
@@ -175,9 +262,7 @@ def compile_code():
         print(f"\n[FORGE-AI]: {sem_result}")
         sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
         
-        # --- NEW: DYNAMIC TABLE PADDING ALGORITHM ---
         if sorted_inv:
-            # 1. Calculate the maximum string length for each column
             id_len = max([len("IDENTIFIER")] + [len(var) for var, d in sorted_inv])
             type_len = max([len("TYPE")] + [len(d['type']) for var, d in sorted_inv])
             val_len = max([len("VALUE")] + [len(str(d['value'])) for var, d in sorted_inv])
@@ -185,7 +270,6 @@ def compile_code():
             off_len = max([len("OFFSET")] + [len(str(d['offset'])) for var, d in sorted_inv])
             width_len = max([len("WIDTH")] + [len(d['width']) for var, d in sorted_inv])
 
-            # 2. Build Inventory Table
             inv_header = f"|| {'IDENTIFIER'.ljust(id_len)} | {'TYPE'.ljust(type_len)} | {'VALUE'.ljust(val_len)} ||"
             inv_border = "=" * len(inv_header)
             inv_divider = "-" * len(inv_header)
@@ -199,7 +283,6 @@ def compile_code():
                 print(f"|| {var.ljust(id_len)} | {d['type'].ljust(type_len)} | {str(d['value']).ljust(val_len)} ||")
             print(inv_border)
             
-            # 3. Build Symbol Table
             sym_header = f"|| {'IDENTIFIER'.ljust(id_len)} | {'TYPE'.ljust(type_len)} | {'LEVEL'.ljust(lvl_len)} | {'OFFSET'.ljust(off_len)} | {'WIDTH'.ljust(width_len)} ||"
             sym_border = "=" * len(sym_header)
             sym_divider = "-" * len(sym_header)
