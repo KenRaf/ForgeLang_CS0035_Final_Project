@@ -65,7 +65,7 @@ function renderOutputs(data) {
         symBody.innerHTML += `<tr>
             <td>${key}</td><td style="color: #ffcc00;">${details.type}</td>
             <td style="color: #00ffff;">${details.level}</td><td style="color: #ff00ff;">${details.offset}</td>
-            <td>${details.space}</td>
+            <td>${details.width}</td>
         </tr>`;
     }
 }

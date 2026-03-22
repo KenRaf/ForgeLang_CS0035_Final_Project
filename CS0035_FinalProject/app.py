@@ -50,20 +50,19 @@ def run_web_semantics(tokens):
     success_msg = ""
     
     while i < len(tokens):
-        # Unpack the 3-part token
         token_type, token_val, token_line = tokens[i][0], tokens[i][1], tokens[i][2]
         
         if token_type == 'SCOPE_IN':
             global_current_level += 1
             global_level_offsets[global_current_level] = 0 
-            print(f"[SEMANTICS] Line {token_line}: Scope opened. Dropped to Level {global_current_level}.")
+            print(f"[SEMANTICS] Line {token_line}: Scope opened. Dropped to Level {global_current_level}. Offset reset to 0.")
             success_msg = f"Scope opened at Level {global_current_level}."
             i += 1
             continue
         elif token_type == 'SCOPE_OUT':
             global_current_level = max(0, global_current_level - 1)
             current_offset = global_level_offsets.get(global_current_level, 0)
-            print(f"[SEMANTICS] Line {token_line}: Scope closed. Returned to Level {global_current_level}.")
+            print(f"[SEMANTICS] Line {token_line}: Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
             if not success_msg: success_msg = f"Scope closed. Returned to Level {global_current_level}."
             i += 1
             continue
@@ -96,7 +95,9 @@ def run_web_semantics(tokens):
                 elif op == 'times': final_val = val1 * val2
                 
                 print(f"[SEMANTICS] Line {token_line}: Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
+                
+                # CHANGED 'space' to 'width'
+                global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': f"{space_required} bytes", 'width_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
                 i += 6 if (i + 7 < len(tokens) and tokens[i+6][0] == 'SCOPE_OUT') else 7
@@ -121,7 +122,9 @@ def run_web_semantics(tokens):
                     }
                 
                 print(f"[SEMANTICS] Line {token_line}: Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
+                
+                # CHANGED 'space' to 'width'
+                global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': f"{space_required} bytes", 'width_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
                 i += 4 if (i + 5 < len(tokens) and tokens[i+4][0] == 'SCOPE_OUT') else 5
@@ -145,7 +148,6 @@ def compile_code():
     sys.stdout = captured_output
     
     try:
-        # --- NEW: AUTO-WIPE RAM ON TEXT COMPILE ---
         if mode == 'text':
             global_inventory.clear()
             global_level_offsets = {0: 0}
@@ -173,34 +175,53 @@ def compile_code():
         print(f"\n[FORGE-AI]: {sem_result}")
         sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
         
-        print("\n" + "="*45)
-        print(f"||{'LIVE INVENTORY STATE':^41}||")
-        print("="*45)
-        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'VALUE':<10} ||")
-        print("-" * 45)
-        for var, d in sorted_inv:
-            print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
-        print("="*45)
-        
+        # --- NEW: DYNAMIC TABLE PADDING ALGORITHM ---
         if sorted_inv:
-            print("\n" + "="*66)
-            print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
-            print("="*66)
-            print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
-            print("-" * 66)
+            # 1. Calculate the maximum string length for each column
+            id_len = max([len("IDENTIFIER")] + [len(var) for var, d in sorted_inv])
+            type_len = max([len("TYPE")] + [len(d['type']) for var, d in sorted_inv])
+            val_len = max([len("VALUE")] + [len(str(d['value'])) for var, d in sorted_inv])
+            lvl_len = max([len("LEVEL")] + [len(d['level']) for var, d in sorted_inv])
+            off_len = max([len("OFFSET")] + [len(str(d['offset'])) for var, d in sorted_inv])
+            width_len = max([len("WIDTH")] + [len(d['width']) for var, d in sorted_inv])
+
+            # 2. Build Inventory Table
+            inv_header = f"|| {'IDENTIFIER'.ljust(id_len)} | {'TYPE'.ljust(type_len)} | {'VALUE'.ljust(val_len)} ||"
+            inv_border = "=" * len(inv_header)
+            inv_divider = "-" * len(inv_header)
+
+            print("\n" + inv_border)
+            print(f"||{'LIVE INVENTORY STATE'.center(len(inv_header)-4)}||")
+            print(inv_border)
+            print(inv_header)
+            print(inv_divider)
+            for var, d in sorted_inv:
+                print(f"|| {var.ljust(id_len)} | {d['type'].ljust(type_len)} | {str(d['value']).ljust(val_len)} ||")
+            print(inv_border)
+            
+            # 3. Build Symbol Table
+            sym_header = f"|| {'IDENTIFIER'.ljust(id_len)} | {'TYPE'.ljust(type_len)} | {'LEVEL'.ljust(lvl_len)} | {'OFFSET'.ljust(off_len)} | {'WIDTH'.ljust(width_len)} ||"
+            sym_border = "=" * len(sym_header)
+            sym_divider = "-" * len(sym_header)
+
+            print("\n" + sym_border)
+            print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)'.center(len(sym_header)-4)}||")
+            print(sym_border)
+            print(sym_header)
+            print(sym_divider)
             
             level_totals = {}
             for var, d in sorted_inv:
-                print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
+                print(f"|| {var.ljust(id_len)} | {d['type'].ljust(type_len)} | {d['level'].ljust(lvl_len)} | {str(d['offset']).ljust(off_len)} | {d['width'].ljust(width_len)} ||")
                 lvl = d.get('level_int', int(d['level'].split()[1]))
-                space_int = d.get('space_int', int(d['space'].split()[0]))
-                level_totals[lvl] = level_totals.get(lvl, 0) + space_int
+                width_int = d.get('width_int', int(d['width'].split()[0]))
+                level_totals[lvl] = level_totals.get(lvl, 0) + width_int
                 
-            print("-" * 66)
+            print(sym_divider)
             for lvl in sorted(level_totals.keys()):
                 label = "Global" if lvl == 0 else "Local "
                 print(f"|| Total {label} Memory Required (Level {lvl}): {level_totals[lvl]} Bytes")
-            print("="*66 + "\n")
+            print(sym_border + "\n")
                 
     finally:
         sys.stdout = sys.__stdout__
