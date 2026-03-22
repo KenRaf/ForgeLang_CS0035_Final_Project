@@ -26,7 +26,12 @@
     </div>
 
     <div id="code-tab" class="tab-content">
-        <textarea id="code-editor" placeholder="// Write ForgeLang script here...&#10;begin hp bossHealth equip 5000 done"></textarea>
+        <div class="editor-container">
+            <div class="line-numbers" id="line-numbers">
+                <span>1</span>
+            </div>
+            <textarea id="code-editor" wrap="off" oninput="updateLineNumbers()" onscroll="syncScroll()" placeholder="// Write ForgeLang script here...&#10;begin hp bossHealth equip 5000 done"></textarea>
+        </div>
         <button id="run-btn" onclick="compileTextCode()">[ RUN SCRIPT ]</button>
     </div>
     
@@ -34,6 +39,7 @@
 
     <div id="error-box">
         <div class="err-title">⚠️ COMPILATION FATAL ERROR</div>
+        <div class="err-line"><span class="err-label">LINE:</span> <span id="err-line" class="err-code" style="background:#ff4d4d; color:#000;"></span></div>
         <div class="err-line"><span class="err-label">REASON:</span> <span id="err-reason"></span></div>
         <div class="err-line"><span class="err-label">RULE:</span> <span id="err-rule"></span></div>
         <div class="err-line"><span class="err-label">FIX:</span> <span id="err-fix"></span></div>

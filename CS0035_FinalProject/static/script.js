@@ -39,6 +39,10 @@ function renderOutputs(data) {
     if (data.status === 'error') {
         errorBox.style.display = 'block';
         document.querySelector('.err-title').innerText = "⚠️ " + data.error_details.type; 
+        
+        // --- NEW: Line Number Error Mapping ---
+        document.getElementById('err-line').innerText = data.error_details.line || "1";
+        
         document.getElementById('err-reason').innerText = data.error_details.reason;
         document.getElementById('err-rule').innerText = data.error_details.rule;
         document.getElementById('err-fix').innerText = data.error_details.fix;
@@ -88,6 +92,9 @@ recognition.onresult = async function(event) {
     if (data.status === 'success') {
         const editor = document.getElementById('code-editor');
         editor.value += data.code + '\n'; 
+        
+        // --- NEW: Update line numbers when voice scribe writes a new line ---
+        updateLineNumbers();
     }
 
     renderOutputs(data);
@@ -109,3 +116,24 @@ async function compileTextCode() {
     const data = await response.json();
     renderOutputs(data);
 }
+
+// --- NEW: VS CODE EDITOR LOGIC ---
+function updateLineNumbers() {
+    const textarea = document.getElementById('code-editor');
+    const lineNumbers = document.getElementById('line-numbers');
+    if (!textarea || !lineNumbers) return; // Safety check
+    
+    const lines = textarea.value.split('\n').length;
+    lineNumbers.innerHTML = Array(lines).fill(0).map((_, i) => `<span>${i + 1}</span>`).join('');
+}
+
+function syncScroll() {
+    const textarea = document.getElementById('code-editor');
+    const lineNumbers = document.getElementById('line-numbers');
+    if (!textarea || !lineNumbers) return; // Safety check
+    
+    lineNumbers.scrollTop = textarea.scrollTop;
+}
+
+// Ensure lines load immediately when the page opens
+document.addEventListener('DOMContentLoaded', updateLineNumbers);

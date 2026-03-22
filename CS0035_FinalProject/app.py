@@ -50,19 +50,20 @@ def run_web_semantics(tokens):
     success_msg = ""
     
     while i < len(tokens):
-        token_type, token_val = tokens[i][0], tokens[i][1]
+        # Unpack the 3-part token
+        token_type, token_val, token_line = tokens[i][0], tokens[i][1], tokens[i][2]
         
         if token_type == 'SCOPE_IN':
             global_current_level += 1
             global_level_offsets[global_current_level] = 0 
-            print(f"[SEMANTICS] Scope opened. Dropped to Level {global_current_level}. Offset reset to 0.")
+            print(f"[SEMANTICS] Line {token_line}: Scope opened. Dropped to Level {global_current_level}.")
             success_msg = f"Scope opened at Level {global_current_level}."
             i += 1
             continue
         elif token_type == 'SCOPE_OUT':
             global_current_level = max(0, global_current_level - 1)
             current_offset = global_level_offsets.get(global_current_level, 0)
-            print(f"[SEMANTICS] Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
+            print(f"[SEMANTICS] Line {token_line}: Scope closed. Returned to Level {global_current_level}.")
             if not success_msg: success_msg = f"Scope closed. Returned to Level {global_current_level}."
             i += 1
             continue
@@ -82,7 +83,7 @@ def run_web_semantics(tokens):
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 if dtype not in ['hp', 'xp']: 
                     return False, {
-                        "type": "SEMANTIC ERROR",
+                        "type": "SEMANTIC ERROR", "line": token_line,
                         "reason": f"Type mismatch. Attempted mathematical operation on '{dtype}' type.",
                         "rule": "Logically inconsistent: Math operators are strictly reserved for numeric stats.",
                         "fix": "Remove the math operator or change the data type.",
@@ -94,7 +95,7 @@ def run_web_semantics(tokens):
                 elif op == 'minus': final_val = val1 - val2
                 elif op == 'times': final_val = val1 * val2
                 
-                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
+                print(f"[SEMANTICS] Line {token_line}: Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
@@ -104,7 +105,7 @@ def run_web_semantics(tokens):
                 lit_type, raw_val = tokens[i+3][0], tokens[i+3][1].replace('"', '')
                 if dtype == 'hp' and lit_type != 'LITERAL_NUM': 
                     return False, {
-                        "type": "SEMANTIC ERROR",
+                        "type": "SEMANTIC ERROR", "line": token_line,
                         "reason": f"Type mismatch. Attempted to equip text into an 'hp' integer block.",
                         "rule": "Logically inconsistent: The 'hp' stat strictly requires raw numeric values.",
                         "fix": "Provide a raw number without any text.",
@@ -112,14 +113,14 @@ def run_web_semantics(tokens):
                     }
                 if dtype == 'lore' and lit_type != 'LITERAL_STR': 
                     return False, {
-                        "type": "SEMANTIC ERROR",
+                        "type": "SEMANTIC ERROR", "line": token_line,
                         "reason": f"Type mismatch. Attempted to equip a number into a 'lore' string block.",
                         "rule": "Logically inconsistent: The 'lore' data type is for text and requires string literals.",
                         "fix": "Speak it clearly as text, or wrap your written value in quotation marks.",
                         "suggestion": f'lore {var_name} equip "legendary item" done'
                     }
                 
-                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
+                print(f"[SEMANTICS] Line {token_line}: Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
@@ -128,7 +129,7 @@ def run_web_semantics(tokens):
             i += 1
 
     if success_msg: return True, success_msg
-    return False, {"type": "SEMANTIC ERROR", "reason": "Unidentified logical inconsistency.", "rule": "Variables must be logically typed.", "fix": "Check spelling.", "suggestion": "hp bossHealth equip 5000 done"}
+    return False, {"type": "SEMANTIC ERROR", "line": 1, "reason": "Unidentified logical inconsistency.", "rule": "Variables must be logically typed.", "fix": "Check spelling.", "suggestion": "hp bossHealth equip 5000 done"}
 
 @app.route('/')
 def home():

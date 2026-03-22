@@ -95,20 +95,50 @@ button {
 #toggle-sym-btn { background-color: #0088ff; color: #fff; margin-top: 20px; font-size: 16px; padding: 10px 20px; }
 #toggle-sym-btn:hover { background-color: #66b2ff; box-shadow: 0 0 15px #0088ff; }
 
-/* --- TEXT BOXES & TERMINAL --- */
-textarea { 
-    width: 100%; 
-    height: 150px; 
-    background-color: rgba(0, 0, 0, 0.8); 
-    color: #00ff00; 
-    border: 1px solid #33ff33; 
-    padding: 15px; 
-    font-family: monospace; 
-    font-size: 18px; 
-    box-sizing: border-box; 
-    resize: vertical; 
+/* --- CODE EDITOR (VS CODE STYLE) --- */
+.editor-container {
+    display: flex;
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 1px solid #33ff33;
+    border-radius: 5px;
+    height: 200px;
+    text-align: left;
 }
-textarea:focus { outline: none; box-shadow: inset 0 0 10px #00ff00; }
+
+.line-numbers {
+    padding: 15px 10px;
+    background-color: #050505;
+    color: #555;
+    font-family: monospace;
+    font-size: 18px;
+    text-align: right;
+    border-right: 1px solid #222;
+    user-select: none;
+    overflow: hidden;
+    line-height: 22px; /* Must match textarea */
+}
+
+.line-numbers span {
+    display: block;
+}
+
+#code-editor {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    color: #00ff00;
+    padding: 15px;
+    font-family: monospace;
+    font-size: 18px;
+    resize: none;
+    outline: none;
+    white-space: pre;
+    overflow-x: auto;
+    overflow-y: auto;
+    line-height: 22px; /* Must match line-numbers */
+}
+
+#code-editor:focus { box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.2); }
 
 /* --- ERROR DIAGNOSTICS UI --- */
 #error-box { 
