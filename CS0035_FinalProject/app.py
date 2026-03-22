@@ -42,6 +42,9 @@ def format_web_voice(raw_text):
 
 def run_web_semantics(tokens):
     global global_inventory, global_level_offsets, global_current_level, global_order_counter
+    
+    if not tokens: return True, "Ready for input."
+    
     print(f"\n--- STARTING SEMANTIC ANALYSIS (State: Level {global_current_level}) ---")
     i = 0
     success_msg = ""
@@ -92,7 +95,6 @@ def run_web_semantics(tokens):
                 elif op == 'times': final_val = val1 * val2
                 
                 print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                # --- NEW: Added level_int and space_int to match reference logic ---
                 global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
@@ -118,7 +120,6 @@ def run_web_semantics(tokens):
                     }
                 
                 print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                # --- NEW: Added level_int and space_int to match reference logic ---
                 global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
@@ -135,6 +136,7 @@ def home():
 
 @app.route('/compile', methods=['POST'])
 def compile_code():
+    global global_inventory, global_level_offsets, global_current_level, global_order_counter
     data = request.json
     raw_code, mode = data.get('code', ''), data.get('mode', 'voice') 
     
@@ -142,8 +144,15 @@ def compile_code():
     sys.stdout = captured_output
     
     try:
+        # --- NEW: AUTO-WIPE RAM ON TEXT COMPILE ---
+        if mode == 'text':
+            global_inventory.clear()
+            global_level_offsets = {0: 0}
+            global_current_level = 0
+            global_order_counter = 0  
+        
         fixed_code = format_web_voice(raw_code) if mode == 'voice' else raw_code.strip()
-        print(f"[{mode.upper()} IN] >>> {fixed_code} <<<")
+        print(f"[{mode.upper()} IN] >>>\n{fixed_code}\n<<<")
             
         success, lex_result = run_lexer(fixed_code)
         if not success:
@@ -172,25 +181,25 @@ def compile_code():
             print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
         print("="*45)
         
-        # --- NEW: FULLY INTEGRATED SYMBOL TABLE TOTALS ---
-        print("\n" + "="*66)
-        print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
-        print("="*66)
-        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
-        print("-" * 66)
-        
-        level_totals = {}
-        for var, d in sorted_inv:
-            print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
-            lvl = d.get('level_int', int(d['level'].split()[1]))
-            space_int = d.get('space_int', int(d['space'].split()[0]))
-            level_totals[lvl] = level_totals.get(lvl, 0) + space_int
+        if sorted_inv:
+            print("\n" + "="*66)
+            print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
+            print("="*66)
+            print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
+            print("-" * 66)
             
-        print("-" * 66)
-        for lvl in sorted(level_totals.keys()):
-            label = "Global" if lvl == 0 else "Local "
-            print(f"|| Total {label} Memory Required (Level {lvl}): {level_totals[lvl]} Bytes")
-        print("="*66 + "\n")
+            level_totals = {}
+            for var, d in sorted_inv:
+                print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
+                lvl = d.get('level_int', int(d['level'].split()[1]))
+                space_int = d.get('space_int', int(d['space'].split()[0]))
+                level_totals[lvl] = level_totals.get(lvl, 0) + space_int
+                
+            print("-" * 66)
+            for lvl in sorted(level_totals.keys()):
+                label = "Global" if lvl == 0 else "Local "
+                print(f"|| Total {label} Memory Required (Level {lvl}): {level_totals[lvl]} Bytes")
+            print("="*66 + "\n")
                 
     finally:
         sys.stdout = sys.__stdout__
