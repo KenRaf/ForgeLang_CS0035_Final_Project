@@ -89,7 +89,13 @@ def run_web_semantics(tokens):
             
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
                 if dtype not in ['hp', 'xp']: 
-                    return False, "Fatal Error: Math on non-numeric type."
+                    # --- NEW: STRUCTURED SEMANTIC ERROR (MATH) ---
+                    return False, {
+                        "reason": f"Attempted mathematical operation on '{dtype}' type.",
+                        "rule": "Math operators (plus, minus, times) are strictly reserved for numeric stats.",
+                        "fix": "Remove the math operator or change the data type to 'hp' or 'xp'.",
+                        "suggestion": f"hp {var_name} equip 100 plus 50 done"
+                    }
                 
                 val1, op, val2 = int(tokens[i+3][1]), tokens[i+4][1], int(tokens[i+5][1])
                 if op == 'plus': final_val = val1 + val2
@@ -114,9 +120,21 @@ def run_web_semantics(tokens):
             else:
                 lit_type, raw_val = tokens[i+3][0], tokens[i+3][1].replace('"', '')
                 if dtype == 'hp' and lit_type != 'LITERAL_NUM': 
-                    return False, "Fatal Error: Cannot equip text to HP."
+                    # --- NEW: STRUCTURED SEMANTIC ERROR (TYPE MISMATCH HP) ---
+                    return False, {
+                        "reason": f"Type mismatch. Attempted to equip text into an 'hp' integer block.",
+                        "rule": "The 'hp' (Health Points) data type strictly requires raw numeric values.",
+                        "fix": "Provide a raw number without any text.",
+                        "suggestion": f"hp {var_name} equip 500 done"
+                    }
                 if dtype == 'lore' and lit_type != 'LITERAL_STR': 
-                    return False, "Fatal Error: Cannot equip number to Lore."
+                    # --- NEW: STRUCTURED SEMANTIC ERROR (TYPE MISMATCH LORE) ---
+                    return False, {
+                        "reason": f"Type mismatch. Attempted to equip a number into a 'lore' string block.",
+                        "rule": "The 'lore' data type is for text and requires string literals.",
+                        "fix": "Speak it clearly as text, or wrap your written value in quotation marks.",
+                        "suggestion": f'lore {var_name} equip "legendary item" done'
+                    }
                 
                 global_inventory[var_name] = {
                     'type': dtype, 'value': raw_val, 
@@ -137,7 +155,14 @@ def run_web_semantics(tokens):
 
     if success_msg:
         return True, success_msg
-    return False, "Unknown semantic error."
+        
+    # --- FALLBACK SEMANTIC ERROR ---
+    return False, {
+        "reason": "The Semantic Analyzer could not process the assignment.",
+        "rule": "Variables must be properly typed and formatted.",
+        "fix": "Check your spelling and ensure no keywords are missing.",
+        "suggestion": "hp bossHealth equip 5000 done"
+    }
 
 @app.route('/')
 def home():
@@ -147,13 +172,11 @@ def home():
 def compile_code():
     data = request.json
     raw_code = data.get('code', '')
-    mode = data.get('mode', 'voice') # NEW: Determine if voice or text input
+    mode = data.get('mode', 'voice') 
     
     captured_output = io.StringIO()
     sys.stdout = captured_output
     
-    success = False
-    msg = ""
     fixed_code = ""
     
     try:
@@ -161,62 +184,78 @@ def compile_code():
             fixed_code = format_web_voice(raw_code)
             print(f"[VOICE IN] >>> {fixed_code} <<<")
         else:
-            # For text mode, respect exactly what they typed
             fixed_code = raw_code.strip()
             print(f"[TEXT IN] >>>\n{fixed_code}\n<<<")
             
         tokens = run_lexer(fixed_code)
         
+        # --- NEW: PARSER ERROR CATCHING ---
         if not run_parser(tokens):
             msg = "Compilation failed. Syntax error detected."
             print(f"\n[FORGE-AI]: {msg}")
-        else:
-            success, msg = run_web_semantics(tokens)
+            
+            error_details = {
+                "reason": "The Parser detected a structural grammar violation.",
+                "rule": "A standard ForgeLang assignment must follow: [DataType] [Identifier] [equip] [Value] [done]",
+                "fix": "Ensure you are using the exact keywords in the correct mathematical order.",
+                "suggestion": "hp enemyHealth equip 100 done"
+            }
+            
+            return jsonify({
+                "status": "error", "message": msg, "code": fixed_code,
+                "error_details": error_details, "inventory": global_inventory,
+                "terminal_logs": captured_output.getvalue()
+            })
+            
+        # --- NEW: SEMANTICS ERROR CATCHING ---
+        success, result = run_web_semantics(tokens)
+        if not success:
+            msg = "Compilation failed. Semantic type error detected."
             print(f"\n[FORGE-AI]: {msg}")
             
-            if success:
-                sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
-                
-                print("\n" + "="*45)
-                print(f"||{'LIVE INVENTORY STATE':^41}||")
-                print("="*45)
-                print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'VALUE':<10} ||")
-                print("-" * 45)
-                for var, d in sorted_inv:
-                    print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
-                print("="*45)
-                
-                print("\n" + "="*66)
-                print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
-                print("="*66)
-                print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
-                print("-" * 66)
-                for var, d in sorted_inv:
-                    print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
-                print("="*66 + "\n")
+            return jsonify({
+                "status": "error", "message": msg, "code": fixed_code,
+                "error_details": result, "inventory": global_inventory,
+                "terminal_logs": captured_output.getvalue()
+            })
+            
+        # --- SUCCESS PATH ---
+        print(f"\n[FORGE-AI]: {result}")
+        sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
+        
+        print("\n" + "="*45)
+        print(f"||{'LIVE INVENTORY STATE':^41}||")
+        print("="*45)
+        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'VALUE':<10} ||")
+        print("-" * 45)
+        for var, d in sorted_inv:
+            print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
+        print("="*45)
+        
+        print("\n" + "="*66)
+        print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
+        print("="*66)
+        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
+        print("-" * 66)
+        for var, d in sorted_inv:
+            print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
+        print("="*66 + "\n")
                 
     finally:
         sys.stdout = sys.__stdout__
         
-    terminal_logs = captured_output.getvalue()
-    
     return jsonify({
-        "status": "success" if success else "error",
-        "message": msg,
-        "inventory": global_inventory,
-        "code": fixed_code,
-        "terminal_logs": terminal_logs
+        "status": "success", "message": result, "code": fixed_code,
+        "inventory": global_inventory, "terminal_logs": captured_output.getvalue()
     })
 
 @app.route('/reset', methods=['POST'])
 def reset_memory():
     global global_inventory, global_level_offsets, global_current_level, global_order_counter
-    
     global_inventory.clear()
     global_level_offsets = {0: 0}
     global_current_level = 0
     global_order_counter = 0  
-    
     return jsonify({"status": "success", "message": "Memory purged successfully."})
 
 if __name__ == "__main__":

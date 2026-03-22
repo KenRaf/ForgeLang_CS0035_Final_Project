@@ -7,7 +7,6 @@
         body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 30px; }
         .container { max-width: 900px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
         
-        /* TAB STYLES */
         .tab-header { display: flex; justify-content: center; margin-bottom: 20px; }
         .tab-btn { background-color: #003300; border: 1px solid #00ff00; color: #00ff00; padding: 10px 20px; cursor: pointer; font-family: monospace; font-size: 16px; margin: 0 5px; font-weight: bold; }
         .tab-btn.active { background-color: #00ff00; color: #000; }
@@ -25,6 +24,13 @@
         textarea { width: 100%; height: 150px; background-color: #000; color: #00ff00; border: 1px solid #33ff33; padding: 15px; font-family: monospace; font-size: 18px; box-sizing: border-box; resize: vertical; }
         textarea:focus { outline: none; box-shadow: inset 0 0 10px #00ff00; }
 
+        /* --- NEW: ERROR BOX CSS --- */
+        #error-box { display: none; background-color: #2b0000; color: #ff4d4d; border: 1px solid #ff0000; padding: 20px; margin-top: 20px; text-align: left; box-shadow: 0 0 15px #ff0000; border-left: 5px solid #ff0000; }
+        .err-title { font-weight: bold; font-size: 1.3em; border-bottom: 1px solid #ff4d4d; padding-bottom: 10px; margin-bottom: 15px; color: #ff3333; }
+        .err-label { font-weight: bold; color: #ff9999; width: 100px; display: inline-block; }
+        .err-line { margin-bottom: 10px; font-size: 1.1em; }
+        .err-code { font-family: monospace; background: #000; padding: 3px 8px; border: 1px dashed #ff4d4d; color: #fff; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #050505; }
         th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
         th { background-color: #003300; }
@@ -36,7 +42,7 @@
 <body>
 
 <div class="container">
-    <h1>=== FORGELANG AI IDE ===</h1>
+    <h1>=== FORGELANG CORE ENGINE ===</h1>
     <p>Target Domain: Real-time RPG Memory Allocation</p>
     
     <div class="tab-header">
@@ -50,11 +56,20 @@
     </div>
 
     <div id="code-tab" class="tab-content">
-        <textarea id="code-editor" placeholder="// Write ForgeLang script here...&#10;begin hp bossHealth equip 5000 done&#10;lore bossName equip dragon close done"></textarea>
+        <textarea id="code-editor" placeholder="// Write ForgeLang script here...&#10;begin hp bossHealth equip 5000 done"></textarea>
         <button id="run-btn" onclick="compileTextCode()">[ RUN SCRIPT ]</button>
     </div>
     
     <h3 class="log" id="status-log">System Ready.</h3>
+
+    <div id="error-box">
+        <div class="err-title">⚠️ COMPILATION FATAL ERROR</div>
+        <div class="err-line"><span class="err-label">REASON:</span> <span id="err-reason"></span></div>
+        <div class="err-line"><span class="err-label">RULE:</span> <span id="err-rule"></span></div>
+        <div class="err-line"><span class="err-label">FIX:</span> <span id="err-fix"></span></div>
+        <div class="err-line"><span class="err-label">TRY:</span> <span id="err-suggestion" class="err-code"></span></div>
+    </div>
+
     <button id="reset-btn" onclick="wipeMemory()">[ WIPE CORE MEMORY ]</button>
 
     <div id="terminal-box">
@@ -83,7 +98,6 @@
     const recognition = new SpeechRecognition();
     const synth = window.speechSynthesis;
 
-    // --- TAB SWITCHING LOGIC ---
     function switchTab(evt, tabId) {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -97,13 +111,24 @@
         synth.speak(utterance);
     }
 
-    // --- UNIVERSAL RENDER LOGIC ---
     function renderOutputs(data) {
         document.getElementById('status-log').innerText = data.message;
         
         document.getElementById('terminal-box').innerText = data.terminal_logs;
         const terminal = document.getElementById('terminal-box');
         terminal.scrollTop = terminal.scrollHeight;
+
+        // --- NEW: TOGGLE ERROR BOX BASED ON COMPILER STATUS ---
+        const errorBox = document.getElementById('error-box');
+        if (data.status === 'error') {
+            errorBox.style.display = 'block';
+            document.getElementById('err-reason').innerText = data.error_details.reason;
+            document.getElementById('err-rule').innerText = data.error_details.rule;
+            document.getElementById('err-fix').innerText = data.error_details.fix;
+            document.getElementById('err-suggestion').innerText = data.error_details.suggestion;
+        } else {
+            errorBox.style.display = 'none';
+        }
 
         aiSpeak(data.message);
 
@@ -124,9 +149,9 @@
         }
     }
 
-    // --- VOICE INPUT LOGIC ---
     function startListening() {
         document.getElementById('status-log').innerText = "[ LISTENING... SPEAK NOW ]";
+        document.getElementById('error-box').style.display = 'none'; // Clear error on new input
         recognition.start();
     }
 
@@ -143,8 +168,6 @@
 
         const data = await response.json();
         
-        // --- THE MAGIC SCRIBE FEATURE ---
-        // Automatically write the processed voice code into the Text Editor!
         if (data.status === 'success') {
             const editor = document.getElementById('code-editor');
             editor.value += data.code + '\n'; 
@@ -153,12 +176,12 @@
         renderOutputs(data);
     };
 
-    // --- TEXT INPUT LOGIC ---
     async function compileTextCode() {
         const textCode = document.getElementById('code-editor').value;
         if (!textCode.trim()) return;
 
         document.getElementById('status-log').innerText = "Compiling written script...";
+        document.getElementById('error-box').style.display = 'none';
 
         const response = await fetch('/compile', {
             method: 'POST',
@@ -170,7 +193,6 @@
         renderOutputs(data);
     }
 
-    // --- MEMORY WIPE LOGIC ---
     async function wipeMemory() {
         document.getElementById('status-log').innerText = "Purging memory banks...";
         
@@ -180,7 +202,8 @@
         document.getElementById('symbol-body').innerHTML = '';
         document.getElementById('terminal-box').innerHTML = '<span style="color: gray;">> Memory purged. System Online. Waiting for compilation logs...</span>';
         document.getElementById('recognized-text').innerText = 'None';
-        document.getElementById('code-editor').value = ''; // Also clears the scribe editor!
+        document.getElementById('code-editor').value = ''; 
+        document.getElementById('error-box').style.display = 'none';
         document.getElementById('status-log').innerText = '[ RAM CLEARED ]';
         
         aiSpeak("Memory successfully purged.");
