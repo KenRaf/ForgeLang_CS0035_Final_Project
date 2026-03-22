@@ -14,16 +14,11 @@ global_order_counter = 0
 TYPE_SIZES = {'hp': 4, 'xp': 4, 'status': 2, 'lore': 64}
 
 def format_web_voice(raw_text):
-    # Only replaces math/logic symbols with words, NO auto-camelCase variable fixing!
     raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ').replace('=', ' equals ').replace('>', ' greater ').replace('<', ' less ')
-    
     words = raw_text.lower().split()
     final_string = " ".join(words)
-    
-    # Still automatically appends 'done' if the voice cuts off early
     if not final_string.endswith("done") and not final_string.endswith("close"):
         final_string += " done"
-        
     return final_string
 
 def run_web_semantics(tokens):
@@ -50,7 +45,6 @@ def run_web_semantics(tokens):
             global_current_level = max(0, global_current_level - 1)
             current_offset = global_level_offsets.get(global_current_level, 0)
             
-            # DO-WHILE CLOSURE
             if i + 5 < len(tokens) and tokens[i+1][0] == 'LOOP_TYPE' and tokens[i+1][1] == 'while':
                 cmp_var = tokens[i+2][1]
                 cmp_op = tokens[i+3][1]
@@ -64,7 +58,6 @@ def run_web_semantics(tokens):
                 i += 1
                 continue
 
-        # --- FUNCTIONS ---
         elif token_type == 'FUNC_DECL':
             func_name = tokens[i+1][1]
             if func_name not in global_inventory:
@@ -75,10 +68,8 @@ def run_web_semantics(tokens):
             current_offset = global_level_offsets.get(global_current_level, 0)
             global_inventory[func_name] = {'type': 'skill', 'value': '[Func Block]', 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': "8 bytes", 'width_int': 8, 'order': order_id}
             global_level_offsets[global_current_level] += 8
-            
             print(f"[SEMANTICS] Line {token_line}: Declared skill '{func_name}'. Allocated 8 byte pointer.")
             
-            # Auto-trigger the scope
             global_current_level += 1
             global_level_offsets[global_current_level] = 0
             print(f"[SEMANTICS] Line {token_line}: Skill Scope opened. Dropped to Level {global_current_level}.")
@@ -94,7 +85,6 @@ def run_web_semantics(tokens):
             i += 3
             continue
 
-        # --- LOOPS ---
         elif token_type == 'LOOP_TYPE' and token_val == 'do':
             print(f"[SEMANTICS] Line {token_line}: Do-While Loop started.")
             global_current_level += 1
@@ -116,14 +106,12 @@ def run_web_semantics(tokens):
                 else: order_id = global_inventory[var_name]['order']
                     
                 space_required = TYPE_SIZES.get(dtype, 4)
-                
                 global_current_level += 1
                 global_level_offsets[global_current_level] = 0
                 current_offset = global_level_offsets[global_current_level]
                 
                 global_inventory[var_name] = {'type': dtype, 'value': f"{start_val} to {end_val}", 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'width': f"{space_required} bytes", 'width_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
-                
                 print(f"[SEMANTICS] Line {token_line}: For Loop opened. Iterator '{var_name}' bound to Level {global_current_level}.")
                 i += 9
                 continue
@@ -142,7 +130,26 @@ def run_web_semantics(tokens):
                 i += 6
                 continue
 
-        # --- STANDARD ASSIGNMENTS ---
+        elif token_type == 'OUTPUT':
+            target_type, target_val = tokens[i+1][0], tokens[i+1][1]
+            
+            if target_type == 'ID':
+                if target_val not in global_inventory:
+                    return False, {"type": "SEMANTIC ERROR", "line": token_line, "reason": f"Undeclared variable '{target_val}'.", "rule": "Cannot spawn a variable that does not exist.", "fix": "Declare it first.", "suggestion": f"hp {target_val} equip 100 done"}
+                output_val = global_inventory[target_val]['value']
+            else:
+                output_val = target_val.replace('"', '')
+                
+            print(f"[SEMANTICS] Line {token_line}: Spawn command triggered.")
+            
+            print(f"\n" + "▒"*50)
+            print(f"▒▒▒ 🖥️  PROGRAM OUTPUT: {output_val} ")
+            print(f"▒"*50 + "\n")
+            
+            if not success_msg: success_msg = f"Spawned output successfully."
+            i += 3
+            continue
+
         elif token_type == 'DATATYPE':
             dtype = token_val.lower() 
             var_name = tokens[i+1][1]

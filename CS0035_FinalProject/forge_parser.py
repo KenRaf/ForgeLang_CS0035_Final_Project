@@ -9,7 +9,6 @@ def run_parser(tokens):
             i += 1
             continue
             
-        # --- DO-WHILE CLOSURE LOGIC ---
         if tok_type == 'SCOPE_OUT':
             if i + 5 < len(tokens) and tokens[i+1][0] == 'LOOP_TYPE' and tokens[i+1][1] == 'while':
                 if tokens[i+2][0] != 'ID' or tokens[i+3][0] != 'COMPARE_OP' or not tokens[i+4][0].startswith('LITERAL') or tokens[i+5][0] != 'DELIM':
@@ -22,7 +21,6 @@ def run_parser(tokens):
                 i += 1
                 continue
 
-        # --- FUNCTIONS ---
         if tok_type == 'FUNC_DECL': 
             if i+2 >= len(tokens) or tokens[i+1][0] != 'ID' or tokens[i+2][0] != 'SCOPE_IN':
                 return False, {"type": "SYNTAX ERROR", "line": tok_line, "reason": "Malformed skill declaration.", "rule": "Requires: skill [Name] begin", "fix": "Follow correct format.", "suggestion": "skill healSpell begin"}
@@ -37,7 +35,14 @@ def run_parser(tokens):
             i += 3
             continue
 
-        # --- LOOPS ---
+        # --- NEW: OUTPUT (SPAWN) COMMAND ---
+        if tok_type == 'OUTPUT':
+            if i + 2 >= len(tokens) or (tokens[i+1][0] != 'ID' and not tokens[i+1][0].startswith('LITERAL')) or tokens[i+2][0] != 'DELIM':
+                return False, {"type": "SYNTAX ERROR", "line": tok_line, "reason": "Malformed spawn command.", "rule": "Requires: spawn [Value or Variable] done", "fix": "Check your syntax.", "suggestion": "spawn \"Hello World\" done"}
+            print(f"[PARSER] Line {tok_line}: Valid spawn statement.")
+            i += 3
+            continue
+
         if tok_type == 'LOOP_START': 
             if i+1 < len(tokens) and tokens[i+1][1] == 'for':
                 if i+8 >= len(tokens) or tokens[i+2][0] != 'DATATYPE' or tokens[i+3][0] != 'ID' or tokens[i+4][0] != 'ASSIGN' or not tokens[i+5][0].startswith('LITERAL') or tokens[i+6][0] != 'TO' or not tokens[i+7][0].startswith('LITERAL') or tokens[i+8][0] != 'SCOPE_IN':
@@ -60,7 +65,6 @@ def run_parser(tokens):
             i += 2
             continue
 
-        # --- STANDARD ASSIGNMENTS ---
         if tok_type == 'DATATYPE':
             if i + 1 >= len(tokens) or tokens[i+1][0] != 'ID':
                 return False, {"type": "SYNTAX ERROR", "line": tok_line, "reason": "Missing variable name.", "rule": "An identifier must follow the data type.", "fix": "Add a valid name after the type.", "suggestion": f"{tok_val} myVar equip 100 done"}
