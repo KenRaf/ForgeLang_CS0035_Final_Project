@@ -156,5 +156,24 @@ function toggleLayout() {
     }
 }
 
+// --- NEW: DEDICATED VOICE MEMORY WIPE (Less Technical Text) ---
+async function wipeMemory() {
+    document.getElementById('status-log').innerText = "Clearing data...";
+    
+    // Calls the backend to clear the Python dictionaries
+    await fetch('/reset', { method: 'POST' });
+    
+    // Clears the Frontend UI
+    document.getElementById('inventory-body').innerHTML = '';
+    document.getElementById('symbol-body').innerHTML = '';
+    document.getElementById('terminal-box').innerHTML = '<span style="color: gray;">> Data cleared. System Online. Waiting for compilation logs...</span>';
+    document.getElementById('recognized-text').innerText = 'None';
+    document.getElementById('code-editor').value = ''; 
+    document.getElementById('error-box').style.display = 'none';
+    document.getElementById('status-log').innerText = '[ DATA CLEARED ]';
+    
+    aiSpeak("Data successfully cleared.");
+}
+
 // Ensure lines load immediately when the page opens
 document.addEventListener('DOMContentLoaded', updateLineNumbers);

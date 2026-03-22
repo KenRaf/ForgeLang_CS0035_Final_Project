@@ -28,6 +28,13 @@
 
             <div id="voice-tab" class="tab-content active">
                 <button id="mic-btn" onclick="startListening()">[ CLICK TO SPEAK ]</button>
+                
+                <button id="reset-btn" onclick="wipeMemory()">[ CLEAR DATA ]</button>
+                
+                <p style="color: #ffaa00; font-size: 14px; margin-top: 20px; border: 1px dashed #ffaa00; padding: 10px; background-color: rgba(50, 20, 0, 0.6); text-align: left;">
+                    ⚠️ <b>NOTE:</b> Voice input requires single-word names (e.g., <i>"health"</i>). Otherwise, use the Text Input tab for complex camelCase names (e.g., <i>"bossHealth"</i>).
+                </p>
+
                 <p style="color: gray;">Recognized: <span id="recognized-text">None</span></p>
             </div>
 
@@ -71,7 +78,7 @@
             </table>
 
             <div id="symbol-table-container" style="display: none;">
-                <h2 style="margin-top: 40px;">[ TRUE SYMBOL TABLE (MEMORY MAP) ]</h2>
+                <h2 style="margin-top: 40px;">[ SYMBOL TABLE (MEMORY MAP) ]</h2>
                 <table id="symbol-table">
                     <thead>
                         <tr><th>Identifier</th><th>Data Type</th><th>Scope Level</th><th>Memory Offset</th><th>Width</th></tr>

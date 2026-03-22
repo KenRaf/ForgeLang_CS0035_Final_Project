@@ -14,31 +14,16 @@ global_order_counter = 0
 TYPE_SIZES = {'hp': 4, 'xp': 4, 'status': 2, 'lore': 64}
 
 def format_web_voice(raw_text):
+    # Only replaces math/logic symbols with words, NO auto-camelCase variable fixing!
     raw_text = raw_text.replace('-', ' minus ').replace('+', ' plus ').replace('*', ' times ').replace('x', ' times ').replace('=', ' equals ').replace('>', ' greater ').replace('<', ' less ')
-    words = raw_text.lower().split()
-    # Updated Voice Keywords Dictionary
-    keywords = ['hp', 'lore', 'xp', 'status', 'equip', 'done', 'spawn', 'plus', 'minus', 'times', 'begin', 'close', 'skill', 'cast', 'loop', 'for', 'while', 'do', 'to', 'greater', 'less', 'equals']
     
-    processed_words = []
-    i = 0
-    while i < len(words):
-        if words[i] in ['hp', 'lore', 'xp', 'status', 'spawn', 'skill', 'cast']:
-            processed_words.append(words[i]) 
-            i += 1
-            var_name_parts = []
-            while i < len(words) and words[i] not in keywords:
-                var_name_parts.append(words[i])
-                i += 1
-            if var_name_parts:
-                camel_case_var = var_name_parts[0] + ''.join(w.capitalize() for w in var_name_parts[1:])
-                processed_words.append(camel_case_var)
-        else:
-            processed_words.append(words[i])
-            i += 1
-            
-    final_string = " ".join(processed_words)
+    words = raw_text.lower().split()
+    final_string = " ".join(words)
+    
+    # Still automatically appends 'done' if the voice cuts off early
     if not final_string.endswith("done") and not final_string.endswith("close"):
         final_string += " done"
+        
     return final_string
 
 def run_web_semantics(tokens):
