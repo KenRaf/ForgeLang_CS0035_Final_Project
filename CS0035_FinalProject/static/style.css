@@ -1,4 +1,4 @@
-/* --- GLOBAL STYLES --- */
+
 body { 
     color: #00ff00; 
     font-family: 'Courier New', Courier, monospace; 
@@ -8,21 +8,6 @@ body {
     background-color: #000; 
 }
 
-/* --- THE VIDEO BACKGROUND --- */
-#bg-video {
-    position: fixed;
-    top: 0;
-    left: 0;
-    min-width: 100%;
-    min-height: 100%;
-    width: auto;
-    height: auto;
-    z-index: -1; 
-    object-fit: cover; 
-    filter: brightness(0.3) blur(1px); 
-}
-
-/* --- THE SEMI-TRANSPARENT GLASS CONTAINER --- */
 .container { 
     max-width: 900px; 
     margin: auto; 
@@ -34,7 +19,6 @@ body {
     border-radius: 10px;
 }
 
-/* --- TAB STYLES --- */
 .tab-header { 
     display: flex; 
     justify-content: center; 
@@ -72,7 +56,6 @@ body {
     display: block; 
 }
 
-/* --- BUTTONS --- */
 button { 
     font-size: 20px; 
     padding: 15px 30px; 
@@ -95,7 +78,6 @@ button {
 #toggle-sym-btn { background-color: #0088ff; color: #fff; margin-top: 20px; font-size: 16px; padding: 10px 20px; }
 #toggle-sym-btn:hover { background-color: #66b2ff; box-shadow: 0 0 15px #0088ff; }
 
-/* --- CODE EDITOR (VS CODE STYLE) --- */
 .editor-container {
     display: flex;
     background-color: rgba(0, 0, 0, 0.8);
@@ -103,11 +85,10 @@ button {
     border-radius: 5px;
     height: 200px;
     
-    /* NEW: Resizing Logic & Limits */
     resize: vertical;
-    overflow: hidden; /* Required for resize to work on divs */
-    min-height: 150px; /* Won't shrink smaller than this */
-    max-height: 600px; /* Won't grow larger than this */
+    overflow: hidden;
+    min-height: 150px;
+    max-height: 600px;
     
     text-align: left;
 }
@@ -122,7 +103,7 @@ button {
     border-right: 1px solid #222;
     user-select: none;
     overflow: hidden;
-    line-height: 22px; /* Must match textarea */
+    line-height: 22px;
 }
 
 .line-numbers span {
@@ -137,17 +118,16 @@ button {
     padding: 15px;
     font-family: monospace;
     font-size: 18px;
-    resize: none; /* Keep none here so they drag the container instead */
+    resize: none;
     outline: none;
     white-space: pre;
     overflow-x: auto;
     overflow-y: auto;
-    line-height: 22px; /* Must match line-numbers */
+    line-height: 22px;
 }
 
 #code-editor:focus { box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.2); }
 
-/* --- ERROR DIAGNOSTICS UI --- */
 #error-box { 
     display: none; 
     background-color: rgba(43, 0, 0, 0.9); 
@@ -164,7 +144,6 @@ button {
 .err-line { margin-bottom: 10px; font-size: 1.1em; }
 .err-code { font-family: monospace; background: #000; padding: 3px 8px; border: 1px dashed #ff4d4d; color: #fff; }
 
-/* --- TABLES & LOGS --- */
 table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: rgba(5, 5, 5, 0.8); }
 th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
 th { background-color: rgba(0, 51, 0, 0.9); }
@@ -178,10 +157,9 @@ th { background-color: rgba(0, 51, 0, 0.9); }
     border: 1px solid #33ff33; 
     height: 300px; 
     
-    /* NEW: Resizing Logic & Limits */
     resize: vertical;
-    min-height: 200px; /* Won't shrink smaller than this */
-    max-height: 800px; /* Won't grow larger than this */
+    min-height: 200px; 
+    max-height: 800px; 
     
     overflow-y: auto; 
     white-space: pre-wrap; 
@@ -190,7 +168,6 @@ th { background-color: rgba(0, 51, 0, 0.9); }
     box-shadow: inset 0 0 15px #000000; 
 }
 
-/* --- LAYOUT BUTTON --- */
 #layout-btn {
     background-color: #ff9900; 
     color: #000; 
@@ -200,18 +177,14 @@ th { background-color: rgba(0, 51, 0, 0.9); }
 }
 #layout-btn:hover { background-color: #ffcc66; box-shadow: 0 0 15px #ff9900; }
 
-/* --- DYNAMIC WORKSPACE LAYOUTS --- */
-/* Smooth transition when the container expands */
 #main-container {
     transition: max-width 0.5s ease-in-out;
 }
 
-/* The class that gets applied for Landscape Mode */
 .container.wide-mode {
-    max-width: 95%; /* Expands the container to fill laptop/desktop screens */
+    max-width: 95%;
 }
 
-/* Default Stacked Mode */
 .workspace-portrait {
     display: block;
 }
@@ -219,19 +192,18 @@ th { background-color: rgba(0, 51, 0, 0.9); }
     width: 100%;
 }
 
-/* Side-by-Side Landscape Mode */
 .workspace-landscape {
     display: flex;
     gap: 30px;
-    align-items: flex-start; /* Prevents columns from stretching to match each other */
+    align-items: flex-start;
 }
 
 .workspace-landscape .left-panel {
-    flex: 1; /* Takes up roughly 40% of the screen */
-    position: sticky; /* Pro IDE Feature: Editor stays on screen while scrolling logs! */
+    flex: 1;
+    position: sticky;
     top: 20px; 
 }
 
 .workspace-landscape .right-panel {
-    flex: 1.5; /* Takes up roughly 60% of the screen */
+    flex: 1.5;
 }
