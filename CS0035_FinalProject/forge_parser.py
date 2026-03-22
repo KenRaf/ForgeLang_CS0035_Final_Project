@@ -2,59 +2,55 @@ def run_parser(tokens):
     print("\n--- STARTING SYNTAX ANALYSIS ---")
     i = 0
     while i < len(tokens):
-        if tokens[i][0] in ['SCOPE_IN', 'SCOPE_OUT']:
+        tok_type, tok_val = tokens[i][0], tokens[i][1]
+
+        if tok_type in ['SCOPE_IN', 'SCOPE_OUT']:
             i += 1
             continue
+
+        if tok_type == 'DATATYPE':
+            # 1. Check for missing Identifier
+            if i + 1 >= len(tokens) or tokens[i+1][0] != 'ID':
+                return False, {"type": "SYNTAX ERROR", "reason": "Missing variable name.", "rule": "An identifier must follow the data type.", "fix": "Add a valid name after the type.", "suggestion": f"{tok_val} myVar equip 100 done"}
             
-        if tokens[i][0] == 'DATATYPE':
-            has_math = False
+            # 2. Check for missing 'equip'
+            if i + 2 >= len(tokens) or tokens[i+2][0] != 'ASSIGN':
+                return False, {"type": "SYNTAX ERROR", "reason": "Missing 'equip' operator.", "rule": "You must use 'equip' to assign a value.", "fix": "Add 'equip' after the variable name.", "suggestion": f"{tok_val} {tokens[i+1][1]} equip 100 done"}
+            
+            # 3. Check for missing Value
+            if i + 3 >= len(tokens) or not tokens[i+3][0].startswith('LITERAL'):
+                return False, {"type": "SYNTAX ERROR", "reason": "Missing assignment value.", "rule": "You must provide a value after 'equip'.", "fix": "Add a number or text string.", "suggestion": f"{tok_val} {tokens[i+1][1]} equip 100 done"}
+
+            # Is it a Math Statement?
             if i + 4 < len(tokens) and tokens[i+4][0] == 'MATH_OP':
-                has_math = True
-            
-            if has_math:
-                if i + 7 < len(tokens) and tokens[i+6][0] == 'SCOPE_OUT' and tokens[i+7][0] == 'DELIM':
-                    i += 8
-                elif i + 6 < len(tokens) and tokens[i+1][0] == 'ID' and tokens[i+6][0] == 'DELIM':
-                    i += 7
-                else:
-                    return False, {
-                        "type": "SYNTAX ERROR",
-                        "reason": "Malformed control structure in math operation.",
-                        "rule": "Math structures require: [DataType] [ID] [equip] [Value] [MathOp] [Value] [done]",
-                        "fix": "Ensure you have all required operators and a 'done' delimiter.",
-                        "suggestion": "hp bossHealth equip 100 plus 50 done"
-                    }
+                # 4. Check for missing 2nd Math Value
+                if i + 5 >= len(tokens) or not tokens[i+5][0].startswith('LITERAL'):
+                    return False, {"type": "SYNTAX ERROR", "reason": "Missing second value for math operation.", "rule": "Math operators require a value on both sides.", "fix": "Add a number after the operator.", "suggestion": f"{tok_val} {tokens[i+1][1]} equip {tokens[i+3][1]} plus 50 done"}
+                
+                next_idx = i + 6
+                if next_idx < len(tokens) and tokens[next_idx][0] == 'SCOPE_OUT':
+                    next_idx += 1
+                    
+                # 5. Check for missing 'done' on Math
+                if next_idx >= len(tokens) or tokens[next_idx][0] != 'DELIM':
+                    return False, {"type": "SYNTAX ERROR", "reason": "Missing delimiter or punctuation.", "rule": "Every statement must end with 'done'.", "fix": "Add 'done' at the end.", "suggestion": f"{tok_val} {tokens[i+1][1]} equip {tokens[i+3][1]} plus 50 done"}
+                    
+                i = next_idx + 1 
             else:
-                if i + 5 < len(tokens) and tokens[i+4][0] == 'SCOPE_OUT' and tokens[i+5][0] == 'DELIM':
-                    i += 6
-                elif i + 4 < len(tokens) and tokens[i+1][0] == 'ID' and tokens[i+4][0] == 'DELIM':
-                    i += 5
-                else:
-                    # Specific Syntax Error check for missing delimiters
-                    if i + 4 >= len(tokens) or tokens[i+4][0] != 'DELIM':
-                        return False, {
-                            "type": "SYNTAX ERROR",
-                            "reason": "Missing delimiter or punctuation.",
-                            "rule": "Every statement must end with the 'done' keyword.",
-                            "fix": "Add 'done' at the end of your command.",
-                            "suggestion": f"{tokens[i][1]} myVar equip 100 done"
-                        }
-                    return False, {
-                        "type": "SYNTAX ERROR",
-                        "reason": "Invalid structure or misplaced operator.",
-                        "rule": "Standard assignments require: [DataType] [ID] [equip] [Value] [done]",
-                        "fix": "Check the sequence of your words.",
-                        "suggestion": "hp bossHealth equip 5000 done"
-                    }
+                # Standard Statement
+                next_idx = i + 4
+                if next_idx < len(tokens) and tokens[next_idx][0] == 'SCOPE_OUT':
+                    next_idx += 1
+                    
+                # 6. Check for missing 'done' on Standard
+                if next_idx >= len(tokens) or tokens[next_idx][0] != 'DELIM':
+                    if next_idx < len(tokens):
+                         return False, {"type": "SYNTAX ERROR", "reason": f"Unexpected token '{tokens[next_idx][1]}' before 'done'.", "rule": "Standard assignments require exactly: [Type] [Name] [equip] [Value] [done].", "fix": "Remove the extra words.", "suggestion": f"{tok_val} {tokens[i+1][1]} equip {tokens[i+3][1]} done"}
+                    return False, {"type": "SYNTAX ERROR", "reason": "Missing delimiter or punctuation.", "rule": "Every statement must end with 'done'.", "fix": "Add 'done' at the end.", "suggestion": f"{tok_val} {tokens[i+1][1]} equip {tokens[i+3][1]} done"}
+                
+                i = next_idx + 1 
         else:
-            # Specific Syntax Error check for incorrect keyword usage
-            return False, {
-                "type": "SYNTAX ERROR",
-                "reason": f"Incorrect keyword usage: '{tokens[i][1]}'.",
-                "rule": "Statements must begin with a valid DataType (hp, xp, lore) or Scope modifier (begin).",
-                "fix": "Start the line with a valid declaration keyword.",
-                "suggestion": "hp playerHealth equip 100 done"
-            }
-            
+            return False, {"type": "SYNTAX ERROR", "reason": f"Incorrect keyword usage: '{tok_val}'.", "rule": "Statements must begin with a valid DataType (hp, xp, lore) or Scope modifier (begin).", "fix": "Start the line with a valid declaration keyword.", "suggestion": "hp playerHealth equip 100 done"}
+
     print("Syntax Analysis Complete. No structural errors.")
     return True, {}

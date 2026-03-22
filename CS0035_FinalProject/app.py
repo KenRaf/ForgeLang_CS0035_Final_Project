@@ -29,7 +29,6 @@ def format_web_voice(raw_text):
                 var_name_parts.append(words[i])
                 i += 1
             if var_name_parts:
-                # Retains original malformed strings (like 1minionHealth) so Lexer can catch them!
                 camel_case_var = var_name_parts[0] + ''.join(w.capitalize() for w in var_name_parts[1:])
                 processed_words.append(camel_case_var)
         else:
@@ -63,7 +62,7 @@ def run_web_semantics(tokens):
             continue
             
         elif token_type == 'DATATYPE':
-            dtype = token_val
+            dtype = token_val.lower() # ensure strict type checking
             var_name = tokens[i+1][1]
             space_required = TYPE_SIZES.get(dtype, 4)
             current_offset = global_level_offsets.get(global_current_level, 0)

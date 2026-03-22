@@ -2,45 +2,46 @@ import re
 
 def run_lexer(source_code):
     print("\n--- STARTING LEXICAL ANALYSIS ---")
-    source_code = source_code.lower()
     
-    # NEW: The regex now catches illegal symbols so we can flag them
+    # We use a pattern to catch words, strings, or stray illegal symbols
     token_pattern = r'".*?"|\w+|[^\w\s]'
     raw_tokens = re.findall(token_pattern, source_code)
     
     tokens = []
     for word in raw_tokens:
-        if word in ['hp', 'lore', 'xp', 'status']:
+        w_lower = word.lower() # We check logic in lowercase, but keep the original 'word' for the UI
+        
+        if w_lower in ['hp', 'lore', 'xp', 'status']:
             tokens.append(('DATATYPE', word))
-        elif word == 'begin':
+        elif w_lower == 'begin':
             tokens.append(('SCOPE_IN', word))
-        elif word == 'close':
+        elif w_lower == 'close':
             tokens.append(('SCOPE_OUT', word))
-        elif word == 'spawn':
+        elif w_lower == 'spawn':
             tokens.append(('OUTPUT', word))
-        elif word == 'equip':
+        elif w_lower == 'equip':
             tokens.append(('ASSIGN', word))
-        elif word == 'done':
+        elif w_lower == 'done':
             tokens.append(('DELIM', word))
-        elif word in ['plus', 'minus', 'times']:
+        elif w_lower in ['plus', 'minus', 'times']:
             tokens.append(('MATH_OP', word))
         elif word.startswith('"') and word.endswith('"'):
             tokens.append(('LITERAL_STR', word))
         elif word.isdigit():
             tokens.append(('LITERAL_NUM', word))
         elif word.isalnum():
-            # NEW: Lexical Error check for Malformed Identifiers!
+            # STRICT RULE: Variables CANNOT start with a number!
             if word[0].isdigit():
                 return False, {
                     "type": "LEXICAL ERROR",
                     "reason": f"Malformed identifier '{word}'.",
-                    "rule": "Identifiers cannot start with a number or invalid character.",
+                    "rule": "Variables cannot start with a number.",
                     "fix": "Remove the numbers from the beginning of the variable name.",
                     "suggestion": f"hp {word.lstrip('0123456789')} equip 400 done"
                 }
             tokens.append(('ID', word))
         else:
-            # NEW: Lexical Error check for Illegal Characters!
+            # STRICT RULE: No illegal characters (!, @, #, etc.)
             return False, {
                 "type": "LEXICAL ERROR",
                 "reason": f"Illegal character '{word}' detected.",
