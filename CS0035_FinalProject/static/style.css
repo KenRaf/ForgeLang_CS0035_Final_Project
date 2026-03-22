@@ -102,6 +102,13 @@ button {
     border: 1px solid #33ff33;
     border-radius: 5px;
     height: 200px;
+    
+    /* NEW: Resizing Logic & Limits */
+    resize: vertical;
+    overflow: hidden; /* Required for resize to work on divs */
+    min-height: 150px; /* Won't shrink smaller than this */
+    max-height: 600px; /* Won't grow larger than this */
+    
     text-align: left;
 }
 
@@ -130,7 +137,7 @@ button {
     padding: 15px;
     font-family: monospace;
     font-size: 18px;
-    resize: none;
+    resize: none; /* Keep none here so they drag the container instead */
     outline: none;
     white-space: pre;
     overflow-x: auto;
@@ -170,6 +177,12 @@ th { background-color: rgba(0, 51, 0, 0.9); }
     padding: 20px; 
     border: 1px solid #33ff33; 
     height: 300px; 
+    
+    /* NEW: Resizing Logic & Limits */
+    resize: vertical;
+    min-height: 200px; /* Won't shrink smaller than this */
+    max-height: 800px; /* Won't grow larger than this */
+    
     overflow-y: auto; 
     white-space: pre-wrap; 
     margin-top: 20px; 
