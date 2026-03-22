@@ -92,7 +92,8 @@ def run_web_semantics(tokens):
                 elif op == 'times': final_val = val1 * val2
                 
                 print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'offset': current_offset, 'space': f"{space_required} bytes", 'order': order_id}
+                # --- NEW: Added level_int and space_int to match reference logic ---
+                global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
                 i += 6 if (i + 7 < len(tokens) and tokens[i+6][0] == 'SCOPE_OUT') else 7
@@ -117,7 +118,8 @@ def run_web_semantics(tokens):
                     }
                 
                 print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
-                global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'offset': current_offset, 'space': f"{space_required} bytes", 'order': order_id}
+                # --- NEW: Added level_int and space_int to match reference logic ---
+                global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'level_int': global_current_level, 'offset': current_offset, 'space': f"{space_required} bytes", 'space_int': space_required, 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
                 i += 4 if (i + 5 < len(tokens) and tokens[i+4][0] == 'SCOPE_OUT') else 5
@@ -158,11 +160,9 @@ def compile_code():
             print(f"\n[FORGE-AI]: Compilation halted at Semantic Analysis.")
             return jsonify({"status": "error", "message": "Semantic Error.", "code": fixed_code, "error_details": sem_result, "inventory": global_inventory, "terminal_logs": captured_output.getvalue()})
             
-        # --- SUCCESS PATH: RESTORED FULL TERMINAL LOGS ---
         print(f"\n[FORGE-AI]: {sem_result}")
         sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
         
-        # 1. Print Live Inventory State
         print("\n" + "="*45)
         print(f"||{'LIVE INVENTORY STATE':^41}||")
         print("="*45)
@@ -172,14 +172,24 @@ def compile_code():
             print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
         print("="*45)
         
-        # 2. Print True Symbol Table State
+        # --- NEW: FULLY INTEGRATED SYMBOL TABLE TOTALS ---
         print("\n" + "="*66)
         print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
         print("="*66)
         print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
         print("-" * 66)
+        
+        level_totals = {}
         for var, d in sorted_inv:
             print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
+            lvl = d.get('level_int', int(d['level'].split()[1]))
+            space_int = d.get('space_int', int(d['space'].split()[0]))
+            level_totals[lvl] = level_totals.get(lvl, 0) + space_int
+            
+        print("-" * 66)
+        for lvl in sorted(level_totals.keys()):
+            label = "Global" if lvl == 0 else "Local "
+            print(f"|| Total {label} Memory Required (Level {lvl}): {level_totals[lvl]} Bytes")
         print("="*66 + "\n")
                 
     finally:
