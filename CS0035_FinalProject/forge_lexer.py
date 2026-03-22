@@ -3,44 +3,51 @@ import re
 def run_lexer(source_code):
     print("\n--- STARTING LEXICAL ANALYSIS ---")
     source_code = source_code.lower()
-    token_pattern = r'".*?"|\w+'
+    
+    # NEW: The regex now catches illegal symbols so we can flag them
+    token_pattern = r'".*?"|\w+|[^\w\s]'
     raw_tokens = re.findall(token_pattern, source_code)
     
     tokens = []
     for word in raw_tokens:
         if word in ['hp', 'lore', 'xp', 'status']:
-            print(f"[LEXER] Found '{word}' -> Identified as DATATYPE")
             tokens.append(('DATATYPE', word))
         elif word == 'begin':
-            print(f"[LEXER] Found '{word}' -> Identified as SCOPE_IN")
             tokens.append(('SCOPE_IN', word))
-        elif word == 'close':  # <--- UPDATED KEYWORD
-            print(f"[LEXER] Found '{word}' -> Identified as SCOPE_OUT")
+        elif word == 'close':
             tokens.append(('SCOPE_OUT', word))
         elif word == 'spawn':
-            print(f"[LEXER] Found '{word}' -> Identified as OUTPUT_KEYWORD")
             tokens.append(('OUTPUT', word))
         elif word == 'equip':
-            print(f"[LEXER] Found '{word}' -> Identified as ASSIGN_OPERATOR")
             tokens.append(('ASSIGN', word))
         elif word == 'done':
-            print(f"[LEXER] Found '{word}' -> Identified as DELIMITER")
             tokens.append(('DELIM', word))
         elif word in ['plus', 'minus', 'times']:
-            print(f"[LEXER] Found '{word}' -> Identified as MATH_OPERATOR")
             tokens.append(('MATH_OP', word))
         elif word.startswith('"') and word.endswith('"'):
-            print(f"[LEXER] Found {word} -> Identified as STRING_LITERAL")
             tokens.append(('LITERAL_STR', word))
         elif word.isdigit():
-            print(f"[LEXER] Found '{word}' -> Identified as NUMERIC_LITERAL")
             tokens.append(('LITERAL_NUM', word))
-        elif word.isalnum(): 
-            print(f"[LEXER] Found '{word}' -> Identified as IDENTIFIER")
+        elif word.isalnum():
+            # NEW: Lexical Error check for Malformed Identifiers!
+            if word[0].isdigit():
+                return False, {
+                    "type": "LEXICAL ERROR",
+                    "reason": f"Malformed identifier '{word}'.",
+                    "rule": "Identifiers cannot start with a number or invalid character.",
+                    "fix": "Remove the numbers from the beginning of the variable name.",
+                    "suggestion": f"hp {word.lstrip('0123456789')} equip 400 done"
+                }
             tokens.append(('ID', word))
         else:
-            print(f"[LEXER] Found '{word}' -> UNKNOWN TOKEN!")
-            tokens.append(('UNKNOWN', word))
+            # NEW: Lexical Error check for Illegal Characters!
+            return False, {
+                "type": "LEXICAL ERROR",
+                "reason": f"Illegal character '{word}' detected.",
+                "rule": "Symbols not in the language's alphabet are strictly rejected.",
+                "fix": "Remove the invalid symbol.",
+                "suggestion": "Stick to letters, numbers, and allowed ForgeLang keywords."
+            }
             
     print("Lexical Analysis Complete.")
-    return tokens
+    return True, tokens

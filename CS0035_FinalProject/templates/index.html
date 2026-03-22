@@ -21,10 +21,13 @@
         #reset-btn { background-color: #ff0000; color: #fff; margin-top: 20px;}
         #reset-btn:hover { background-color: #ff6666; }
         
+        /* NEW: Toggle Button Style */
+        #toggle-sym-btn { background-color: #0088ff; color: #fff; margin-top: 20px; font-size: 16px; padding: 10px 20px; }
+        #toggle-sym-btn:hover { background-color: #66b2ff; }
+        
         textarea { width: 100%; height: 150px; background-color: #000; color: #00ff00; border: 1px solid #33ff33; padding: 15px; font-family: monospace; font-size: 18px; box-sizing: border-box; resize: vertical; }
         textarea:focus { outline: none; box-shadow: inset 0 0 10px #00ff00; }
 
-        /* --- NEW: ERROR BOX CSS --- */
         #error-box { display: none; background-color: #2b0000; color: #ff4d4d; border: 1px solid #ff0000; padding: 20px; margin-top: 20px; text-align: left; box-shadow: 0 0 15px #ff0000; border-left: 5px solid #ff0000; }
         .err-title { font-weight: bold; font-size: 1.3em; border-bottom: 1px solid #ff4d4d; padding-bottom: 10px; margin-bottom: 15px; color: #ff3333; }
         .err-label { font-weight: bold; color: #ff9999; width: 100px; display: inline-block; }
@@ -70,7 +73,10 @@
         <div class="err-line"><span class="err-label">TRY:</span> <span id="err-suggestion" class="err-code"></span></div>
     </div>
 
-    <button id="reset-btn" onclick="wipeMemory()">[ WIPE CORE MEMORY ]</button>
+    <div>
+        <button id="reset-btn" onclick="wipeMemory()">[ WIPE CORE MEMORY ]</button>
+        <button id="toggle-sym-btn" onclick="toggleSymbolTable()">[ SEE SYMBOL TABLE ]</button>
+    </div>
 
     <div id="terminal-box">
         <span style="color: gray;">> System Online. Waiting for compilation logs...</span>
@@ -84,13 +90,15 @@
         <tbody id="inventory-body"></tbody>
     </table>
 
-    <h2>[ TRUE SYMBOL TABLE (MEMORY MAP) ]</h2>
-    <table id="symbol-table">
-        <thead>
-            <tr><th>Identifier</th><th>Data Type</th><th>Scope Level</th><th>Memory Offset</th><th>Total Space</th></tr>
-        </thead>
-        <tbody id="symbol-body"></tbody>
-    </table>
+    <div id="symbol-table-container" style="display: none;">
+        <h2 style="margin-top: 40px;">[ TRUE SYMBOL TABLE (MEMORY MAP) ]</h2>
+        <table id="symbol-table">
+            <thead>
+                <tr><th>Identifier</th><th>Data Type</th><th>Scope Level</th><th>Memory Offset</th><th>Total Space</th></tr>
+            </thead>
+            <tbody id="symbol-body"></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
@@ -103,6 +111,19 @@
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         evt.currentTarget.classList.add('active');
+    }
+
+    // NEW: Function to toggle the Symbol Table visibility
+    function toggleSymbolTable() {
+        const container = document.getElementById('symbol-table-container');
+        const btn = document.getElementById('toggle-sym-btn');
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            btn.innerText = '[ HIDE SYMBOL TABLE ]';
+        } else {
+            container.style.display = 'none';
+            btn.innerText = '[ SEE SYMBOL TABLE ]';
+        }
     }
 
     function aiSpeak(text) {
@@ -118,10 +139,10 @@
         const terminal = document.getElementById('terminal-box');
         terminal.scrollTop = terminal.scrollHeight;
 
-        // --- NEW: TOGGLE ERROR BOX BASED ON COMPILER STATUS ---
         const errorBox = document.getElementById('error-box');
         if (data.status === 'error') {
             errorBox.style.display = 'block';
+            document.querySelector('.err-title').innerText = "⚠️ " + data.error_details.type; 
             document.getElementById('err-reason').innerText = data.error_details.reason;
             document.getElementById('err-rule').innerText = data.error_details.rule;
             document.getElementById('err-fix').innerText = data.error_details.fix;
@@ -151,7 +172,7 @@
 
     function startListening() {
         document.getElementById('status-log').innerText = "[ LISTENING... SPEAK NOW ]";
-        document.getElementById('error-box').style.display = 'none'; // Clear error on new input
+        document.getElementById('error-box').style.display = 'none'; 
         recognition.start();
     }
 
