@@ -189,3 +189,49 @@ th { background-color: rgba(0, 51, 0, 0.9); }
     font-family: monospace; 
     box-shadow: inset 0 0 15px #000000; 
 }
+
+/* --- LAYOUT BUTTON --- */
+#layout-btn {
+    background-color: #ff9900; 
+    color: #000; 
+    font-size: 16px; 
+    padding: 10px 20px;
+    margin-bottom: 20px;
+}
+#layout-btn:hover { background-color: #ffcc66; box-shadow: 0 0 15px #ff9900; }
+
+/* --- DYNAMIC WORKSPACE LAYOUTS --- */
+/* Smooth transition when the container expands */
+#main-container {
+    transition: max-width 0.5s ease-in-out;
+}
+
+/* The class that gets applied for Landscape Mode */
+.container.wide-mode {
+    max-width: 95%; /* Expands the container to fill laptop/desktop screens */
+}
+
+/* Default Stacked Mode */
+.workspace-portrait {
+    display: block;
+}
+.workspace-portrait .left-panel, .workspace-portrait .right-panel {
+    width: 100%;
+}
+
+/* Side-by-Side Landscape Mode */
+.workspace-landscape {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start; /* Prevents columns from stretching to match each other */
+}
+
+.workspace-landscape .left-panel {
+    flex: 1; /* Takes up roughly 40% of the screen */
+    position: sticky; /* Pro IDE Feature: Editor stays on screen while scrolling logs! */
+    top: 20px; 
+}
+
+.workspace-landscape .right-panel {
+    flex: 1.5; /* Takes up roughly 60% of the screen */
+}

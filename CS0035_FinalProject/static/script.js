@@ -135,5 +135,26 @@ function syncScroll() {
     lineNumbers.scrollTop = textarea.scrollTop;
 }
 
+// --- NEW: LANDSCAPE / PORTRAIT TOGGLE ---
+function toggleLayout() {
+    const container = document.getElementById('main-container');
+    const workspace = document.getElementById('workspace');
+    const btn = document.getElementById('layout-btn');
+
+    if (workspace.classList.contains('workspace-portrait')) {
+        // Switch to Landscape Mode
+        workspace.classList.remove('workspace-portrait');
+        workspace.classList.add('workspace-landscape');
+        container.classList.add('wide-mode');
+        btn.innerHTML = '[ PORTRAIT MODE ]';
+    } else {
+        // Switch to Portrait Mode
+        workspace.classList.remove('workspace-landscape');
+        workspace.classList.add('workspace-portrait');
+        container.classList.remove('wide-mode');
+        btn.innerHTML = '[ LANDSCAPE MODE ]';
+    }
+}
+
 // Ensure lines load immediately when the page opens
 document.addEventListener('DOMContentLoaded', updateLineNumbers);
