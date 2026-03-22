@@ -52,17 +52,20 @@ def run_web_semantics(tokens):
         if token_type == 'SCOPE_IN':
             global_current_level += 1
             global_level_offsets[global_current_level] = 0 
+            print(f"[SEMANTICS] Scope opened. Dropped to Level {global_current_level}. Offset reset to 0.")
             success_msg = f"Scope opened at Level {global_current_level}."
             i += 1
             continue
         elif token_type == 'SCOPE_OUT':
             global_current_level = max(0, global_current_level - 1)
+            current_offset = global_level_offsets.get(global_current_level, 0)
+            print(f"[SEMANTICS] Scope closed. Returned to Level {global_current_level}. Resuming at offset {current_offset}.")
             if not success_msg: success_msg = f"Scope closed. Returned to Level {global_current_level}."
             i += 1
             continue
             
         elif token_type == 'DATATYPE':
-            dtype = token_val.lower() # ensure strict type checking
+            dtype = token_val.lower() 
             var_name = tokens[i+1][1]
             space_required = TYPE_SIZES.get(dtype, 4)
             current_offset = global_level_offsets.get(global_current_level, 0)
@@ -88,6 +91,7 @@ def run_web_semantics(tokens):
                 elif op == 'minus': final_val = val1 - val2
                 elif op == 'times': final_val = val1 * val2
                 
+                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {'type': dtype, 'value': final_val, 'level': f"Level {global_current_level}", 'offset': current_offset, 'space': f"{space_required} bytes", 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Math calculated. {var_name} is now {final_val}."
@@ -112,6 +116,7 @@ def run_web_semantics(tokens):
                         "suggestion": f'lore {var_name} equip "legendary item" done'
                     }
                 
+                print(f"[SEMANTICS] Allocating {space_required} bytes at Level {global_current_level}, Offset {current_offset}.")
                 global_inventory[var_name] = {'type': dtype, 'value': raw_val, 'level': f"Level {global_current_level}", 'offset': current_offset, 'space': f"{space_required} bytes", 'order': order_id}
                 global_level_offsets[global_current_level] += space_required
                 success_msg = f"Successfully equipped {var_name}."
@@ -138,30 +143,43 @@ def compile_code():
         fixed_code = format_web_voice(raw_code) if mode == 'voice' else raw_code.strip()
         print(f"[{mode.upper()} IN] >>> {fixed_code} <<<")
             
-        # 1. LEXICAL PHASE
         success, lex_result = run_lexer(fixed_code)
         if not success:
             print(f"\n[FORGE-AI]: Compilation halted at Lexical Analysis.")
             return jsonify({"status": "error", "message": "Lexical Error.", "code": fixed_code, "error_details": lex_result, "inventory": global_inventory, "terminal_logs": captured_output.getvalue()})
         
-        # 2. SYNTAX PHASE
         success, parse_result = run_parser(lex_result)
         if not success:
             print(f"\n[FORGE-AI]: Compilation halted at Syntax Analysis.")
             return jsonify({"status": "error", "message": "Syntax Error.", "code": fixed_code, "error_details": parse_result, "inventory": global_inventory, "terminal_logs": captured_output.getvalue()})
             
-        # 3. SEMANTIC PHASE
         success, sem_result = run_web_semantics(lex_result)
         if not success:
             print(f"\n[FORGE-AI]: Compilation halted at Semantic Analysis.")
             return jsonify({"status": "error", "message": "Semantic Error.", "code": fixed_code, "error_details": sem_result, "inventory": global_inventory, "terminal_logs": captured_output.getvalue()})
             
-        # SUCCESS
+        # --- SUCCESS PATH: RESTORED FULL TERMINAL LOGS ---
         print(f"\n[FORGE-AI]: {sem_result}")
         sorted_inv = sorted(global_inventory.items(), key=lambda x: x[1]['order'])
-        print("\n" + "="*66 + f"\n||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||\n" + "="*66)
-        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||\n" + "-" * 66)
-        for var, d in sorted_inv: print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
+        
+        # 1. Print Live Inventory State
+        print("\n" + "="*45)
+        print(f"||{'LIVE INVENTORY STATE':^41}||")
+        print("="*45)
+        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'VALUE':<10} ||")
+        print("-" * 45)
+        for var, d in sorted_inv:
+            print(f"|| {var:<15} | {d['type']:<7} | {str(d['value']):<10} ||")
+        print("="*45)
+        
+        # 2. Print True Symbol Table State
+        print("\n" + "="*66)
+        print(f"||{'COMPILER SYMBOL TABLE (MEMORY MAP)':^62}||")
+        print("="*66)
+        print(f"|| {'IDENTIFIER':<15} | {'TYPE':<7} | {'LEVEL':<7} | {'OFFSET':<6} | {'SPACE':<9} ||")
+        print("-" * 66)
+        for var, d in sorted_inv:
+            print(f"|| {var:<15} | {d['type']:<7} | {d['level']:<7} | {str(d['offset']):<6} | {d['space']:<9} ||")
         print("="*66 + "\n")
                 
     finally:
