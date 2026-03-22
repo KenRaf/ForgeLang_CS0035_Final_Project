@@ -3,46 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>ForgeLang Web Console</title>
-    <style>
-        body { background-color: #0d1117; color: #00ff00; font-family: 'Courier New', Courier, monospace; text-align: center; padding: 30px; }
-        .container { max-width: 900px; margin: auto; border: 2px solid #00ff00; padding: 20px; box-shadow: 0 0 15px #00ff00; }
-        
-        .tab-header { display: flex; justify-content: center; margin-bottom: 20px; }
-        .tab-btn { background-color: #003300; border: 1px solid #00ff00; color: #00ff00; padding: 10px 20px; cursor: pointer; font-family: monospace; font-size: 16px; margin: 0 5px; font-weight: bold; }
-        .tab-btn.active { background-color: #00ff00; color: #000; }
-        .tab-content { display: none; padding: 20px; border: 1px dashed #00ff00; background-color: #050505; margin-bottom: 20px;}
-        .tab-content.active { display: block; }
-        
-        button { font-size: 20px; padding: 15px 30px; border: none; cursor: pointer; font-weight: bold; margin: 10px; }
-        #mic-btn { background-color: #00ff00; color: #000; }
-        #mic-btn:hover { background-color: #fff; }
-        #run-btn { background-color: #00ff00; color: #000; width: 100%; margin-top: 15px;}
-        #run-btn:hover { background-color: #fff; }
-        #reset-btn { background-color: #ff0000; color: #fff; margin-top: 20px;}
-        #reset-btn:hover { background-color: #ff6666; }
-        
-        /* NEW: Toggle Button Style */
-        #toggle-sym-btn { background-color: #0088ff; color: #fff; margin-top: 20px; font-size: 16px; padding: 10px 20px; }
-        #toggle-sym-btn:hover { background-color: #66b2ff; }
-        
-        textarea { width: 100%; height: 150px; background-color: #000; color: #00ff00; border: 1px solid #33ff33; padding: 15px; font-family: monospace; font-size: 18px; box-sizing: border-box; resize: vertical; }
-        textarea:focus { outline: none; box-shadow: inset 0 0 10px #00ff00; }
-
-        #error-box { display: none; background-color: #2b0000; color: #ff4d4d; border: 1px solid #ff0000; padding: 20px; margin-top: 20px; text-align: left; box-shadow: 0 0 15px #ff0000; border-left: 5px solid #ff0000; }
-        .err-title { font-weight: bold; font-size: 1.3em; border-bottom: 1px solid #ff4d4d; padding-bottom: 10px; margin-bottom: 15px; color: #ff3333; }
-        .err-label { font-weight: bold; color: #ff9999; width: 100px; display: inline-block; }
-        .err-line { margin-bottom: 10px; font-size: 1.1em; }
-        .err-code { font-family: monospace; background: #000; padding: 3px 8px; border: 1px dashed #ff4d4d; color: #fff; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #050505; }
-        th, td { border: 1px solid #00ff00; padding: 10px; text-align: left; }
-        th { background-color: #003300; }
-        .log { margin-top: 20px; color: #ffcc00; }
-        
-        #terminal-box { background-color: #000; color: #00ff00; text-align: left; padding: 20px; border: 1px solid #33ff33; height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 20px; font-family: monospace; box-shadow: inset 0 0 10px #000000; }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+
+<video autoplay muted loop id="bg-video">
+    <source src="/static/background.mp4" type="video/mp4">
+</video>
 
 <div class="container">
     <h1>=== FORGELANG CORE ENGINE ===</h1>
@@ -75,7 +42,7 @@
 
     <div>
         <button id="reset-btn" onclick="wipeMemory()">[ WIPE CORE MEMORY ]</button>
-        <button id="toggle-sym-btn" onclick="toggleSymbolTable()">[ SEE SYMBOL TABLE ]</button>
+        <button id="toggle-sym-btn" onclick="toggleSymbolTable()">[ REVEAL SYMBOL TABLE ]</button>
     </div>
 
     <div id="terminal-box">
@@ -113,7 +80,6 @@
         evt.currentTarget.classList.add('active');
     }
 
-    // NEW: Function to toggle the Symbol Table visibility
     function toggleSymbolTable() {
         const container = document.getElementById('symbol-table-container');
         const btn = document.getElementById('toggle-sym-btn');
@@ -122,7 +88,7 @@
             btn.innerText = '[ HIDE SYMBOL TABLE ]';
         } else {
             container.style.display = 'none';
-            btn.innerText = '[ SEE SYMBOL TABLE ]';
+            btn.innerText = '[ REVEAL SYMBOL TABLE ]';
         }
     }
 
