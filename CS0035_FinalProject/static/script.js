@@ -31,7 +31,12 @@ function aiSpeak(text) {
 function renderOutputs(data) {
     document.getElementById('status-log').innerText = data.message;
     
-    document.getElementById('terminal-box').innerText = data.terminal_logs;
+    let safeLogs = data.terminal_logs.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    safeLogs = safeLogs.replace(/\[🖥️  PROGRAM OUTPUT\] &gt;&gt;&gt; .*/g, '<span style="font-size: 1.4em; color: #00ffff; font-weight: bold; text-shadow: 0 0 8px #00ffff;">$&</span>');
+    
+    document.getElementById('terminal-box').innerHTML = safeLogs;
+
     const terminal = document.getElementById('terminal-box');
     terminal.scrollTop = terminal.scrollHeight;
 
@@ -40,9 +45,7 @@ function renderOutputs(data) {
         errorBox.style.display = 'block';
         document.querySelector('.err-title').innerText = "⚠️ " + data.error_details.type; 
         
-        // --- NEW: Line Number Error Mapping ---
         document.getElementById('err-line').innerText = data.error_details.line || "1";
-        
         document.getElementById('err-reason').innerText = data.error_details.reason;
         document.getElementById('err-rule').innerText = data.error_details.rule;
         document.getElementById('err-fix').innerText = data.error_details.fix;
@@ -93,7 +96,6 @@ recognition.onresult = async function(event) {
         const editor = document.getElementById('code-editor');
         editor.value += data.code + '\n'; 
         
-        // --- NEW: Update line numbers when voice scribe writes a new line ---
         updateLineNumbers();
     }
 
@@ -117,11 +119,10 @@ async function compileTextCode() {
     renderOutputs(data);
 }
 
-// --- NEW: VS CODE EDITOR LOGIC ---
 function updateLineNumbers() {
     const textarea = document.getElementById('code-editor');
     const lineNumbers = document.getElementById('line-numbers');
-    if (!textarea || !lineNumbers) return; // Safety check
+    if (!textarea || !lineNumbers) return; 
     
     const lines = textarea.value.split('\n').length;
     lineNumbers.innerHTML = Array(lines).fill(0).map((_, i) => `<span>${i + 1}</span>`).join('');
@@ -130,25 +131,23 @@ function updateLineNumbers() {
 function syncScroll() {
     const textarea = document.getElementById('code-editor');
     const lineNumbers = document.getElementById('line-numbers');
-    if (!textarea || !lineNumbers) return; // Safety check
+    if (!textarea || !lineNumbers) return; 
     
     lineNumbers.scrollTop = textarea.scrollTop;
 }
 
-// --- NEW: LANDSCAPE / PORTRAIT TOGGLE ---
+// --- LANDSCAPE / PORTRAIT TOGGLE ---
 function toggleLayout() {
     const container = document.getElementById('main-container');
     const workspace = document.getElementById('workspace');
     const btn = document.getElementById('layout-btn');
 
     if (workspace.classList.contains('workspace-portrait')) {
-        // Switch to Landscape Mode
         workspace.classList.remove('workspace-portrait');
         workspace.classList.add('workspace-landscape');
         container.classList.add('wide-mode');
         btn.innerHTML = '[ PORTRAIT MODE ]';
     } else {
-        // Switch to Portrait Mode
         workspace.classList.remove('workspace-landscape');
         workspace.classList.add('workspace-portrait');
         container.classList.remove('wide-mode');
@@ -156,14 +155,11 @@ function toggleLayout() {
     }
 }
 
-// --- NEW: DEDICATED VOICE MEMORY WIPE (Less Technical Text) ---
 async function wipeMemory() {
     document.getElementById('status-log').innerText = "Clearing data...";
     
-    // Calls the backend to clear the Python dictionaries
     await fetch('/reset', { method: 'POST' });
     
-    // Clears the Frontend UI
     document.getElementById('inventory-body').innerHTML = '';
     document.getElementById('symbol-body').innerHTML = '';
     document.getElementById('terminal-box').innerHTML = '<span style="color: gray;">> Data cleared. System Online. Waiting for compilation logs...</span>';
@@ -175,5 +171,4 @@ async function wipeMemory() {
     aiSpeak("Data successfully cleared.");
 }
 
-// Ensure lines load immediately when the page opens
 document.addEventListener('DOMContentLoaded', updateLineNumbers);

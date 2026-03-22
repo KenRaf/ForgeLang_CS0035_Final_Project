@@ -142,9 +142,9 @@ def run_web_semantics(tokens):
                 
             print(f"[SEMANTICS] Line {token_line}: Spawn command triggered.")
             
-            print(f"\n" + "▒"*50)
-            print(f"▒▒▒ 🖥️  PROGRAM OUTPUT: {output_val} ")
-            print(f"▒"*50 + "\n")
+            print(f"\n==================================================")
+            print(f" [PROGRAM OUTPUT] >>> {output_val}")
+            print(f"==================================================\n")
             
             if not success_msg: success_msg = f"Spawned output successfully."
             i += 3
